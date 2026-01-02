@@ -30,3 +30,10 @@ Tag created: `cleanup/remove-node_modules-2026-01-02`
 ---
 
 If you'd like, I can also draft a GitHub release body or open a PR for this notes file — tell me whether to publish a release or open a PR now.
+
+## Update: README replaced
+
+- Date: 2026-01-02
+- Action: Replaced root `README.md` with the combined setup guide from `README_SETUP.md` and pushed the change to `origin/main`.
+
+The combined `README.md` contains setup, quick-start, and troubleshooting instructions for backend and frontend. See the PR for discussion or further edits.
