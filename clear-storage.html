@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Clear LocalStorage</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        .container {
+            background: white;
+            padding: 40px;
+            border-radius: 12px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+        button {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            font-size: 16px;
+            cursor: pointer;
+            margin: 10px;
+        }
+        button:hover {
+            background: #5568d3;
+        }
+        .success {
+            color: #10b981;
+            font-weight: bold;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 Fix LocalStorage</h1>
+        <p>Click the button below to clear corrupted data from localStorage</p>
+        <button onclick="clearStorage()">Clear LocalStorage</button>
+        <button onclick="redirectToApp()">Go to App</button>
+        <div id="message"></div>
+    </div>
+
+    <script>
+        function clearStorage() {
+            localStorage.clear();
+            document.getElementById('message').innerHTML = '<p class="success">✅ LocalStorage cleared successfully!</p>';
+            setTimeout(() => {
+                window.location.href = 'http://localhost:5173';
+            }, 1500);
+        }
+
+        function redirectToApp() {
+            window.location.href = 'http://localhost:5173';
+        }
+
+        // Auto-clear on load
+        window.onload = function() {
+            const urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.get('auto') === 'true') {
+                clearStorage();
+            }
+        }
+    </script>
+</body>
+</html>
