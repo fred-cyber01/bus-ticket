@@ -1,7 +1,7 @@
 // routes/company.js
 const express = require('express');
 const router = express.Router();
-const { authenticate, isCompany } = require('../middleware/auth');
+const { authenticate } = require('../middleware/auth');
 const Company = require('../models/Company');
 const Car = require('../models/Car');
 const Driver = require('../models/Driver');
@@ -13,15 +13,57 @@ const { query } = require('../config/database');
 // Get company profile (authenticated company gets their own profile)
 router.get('/profile', authenticate, async (req, res, next) => {
   try {
-    // Get company_id from authenticated user's token
     const companyId = req.user.company_id || req.user.id;
-    
     const company = await Company.findById(companyId);
     if (!company) {
       return res.status(404).json({ success: false, message: 'Company not found' });
     }
-    
     res.json({ success: true, data: company });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Get company buses (authenticated company's own buses)
+router.get('/buses', authenticate, async (req, res, next) => {
+  try {
+    const companyId = req.user.company_id || req.user.id;
+    const buses = await Car.findByCompany(companyId);
+    res.json({ success: true, data: buses });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Get company drivers (authenticated company's own drivers)
+router.get('/drivers', authenticate, async (req, res, next) => {
+  try {
+    const companyId = req.user.company_id || req.user.id;
+    const drivers = await Driver.findByCompany(companyId);
+    res.json({ success: true, data: drivers });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Get company routes (authenticated company's own routes)
+router.get('/routes', authenticate, async (req, res, next) => {
+  try {
+    const companyId = req.user.company_id || req.user.id;
+    const routes = await Route.findByCompany(companyId);
+    res.json({ success: true, data: routes });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Get company trips (authenticated company's own trips)
+router.get('/trips', authenticate, async (req, res, next) => {
+  try {
+    const companyId = req.user.company_id || req.user.id;
+    const { status, date } = req.query;
+    const trips = await (Trip.findByCompany ? Trip.findByCompany(companyId, { status, date }) : []);
+    res.json({ success: true, data: trips });
   } catch (error) {
     next(error);
   }
@@ -31,12 +73,10 @@ router.get('/profile', authenticate, async (req, res, next) => {
 router.get('/stats', authenticate, async (req, res, next) => {
   try {
     const companyId = req.user.company_id || req.user.id;
-    
     const busCount = await Company.getBusCount(companyId);
     const driverCount = await Company.getDriverCount(companyId);
     const routeCount = await Company.getRouteCount(companyId);
     const companyStats = await Company.getCompanyStats(companyId);
-    
     res.json({
       success: true,
       data: {
@@ -51,27 +91,22 @@ router.get('/stats', authenticate, async (req, res, next) => {
   }
 });
 
-// Get company bookings/tickets (authenticated company gets their own)
+// Company bookings/tickets (authenticated company gets their own)
 router.get('/bookings', authenticate, async (req, res, next) => {
   try {
     const companyId = req.user.company_id || req.user.id;
     const { status, startDate, endDate } = req.query;
-
-    const tickets = await (Ticket.findByCompany
-      ? Ticket.findByCompany(companyId, { status, startDate, endDate })
-      : []);
-
+    const tickets = await (Ticket.findByCompany ? Ticket.findByCompany(companyId, { status, startDate, endDate }) : []);
     res.json({ success: true, data: tickets });
   } catch (error) {
     next(error);
   }
 });
 
-// Get company payments (authenticated company gets their own)
+// Company payments
 router.get('/payments', authenticate, async (req, res, next) => {
   try {
     const companyId = req.user.company_id || req.user.id;
-
     const payments = await query(
       `
       SELECT p.*,
@@ -87,123 +122,49 @@ router.get('/payments', authenticate, async (req, res, next) => {
       `,
       [companyId]
     );
-
     res.json({ success: true, data: payments });
   } catch (error) {
     next(error);
   }
 });
 
-// Get company profile with subscription info (with companyId parameter)
+// Public access to company profile by id (admin/company manager controls required elsewhere)
 router.get('/profile/:companyId', authenticate, async (req, res, next) => {
   try {
     const { companyId } = req.params;
-    
-    // TODO: Add authorization check - only company manager can access their own company
-    
     const company = await Company.findById(companyId);
-    if (!company) {
-      return res.status(404).json({ success: false, message: 'Company not found' });
-    }
-    
+    if (!company) return res.status(404).json({ success: false, message: 'Company not found' });
     res.json({ success: true, data: company });
   } catch (error) {
     next(error);
   }
 });
 
-// Get company statistics
-router.get('/stats/:companyId', authenticate, async (req, res, next) => {
-  try {
-    const { companyId } = req.params;
-    
-    const busCount = await Company.getBusCount(companyId);
-    const driverCount = await Company.getDriverCount(companyId);
-    const routeCount = await Company.getRouteCount(companyId);
-    const companyStats = await Company.getCompanyStats(companyId);
-    
-    res.json({
-      success: true,
-      data: {
-        buses: busCount,
-        drivers: driverCount,
-        routes: routeCount,
-        ...companyStats
-      }
-    });
-  } catch (error) {
-    next(error);
-  }
-});
-
-// Get company buses
-router.get('/buses/:companyId', authenticate, async (req, res, next) => {
-  try {
-    const { companyId } = req.params;
-    const buses = await Car.findByCompany(companyId);
-    res.json({ success: true, data: buses });
-  } catch (error) {
-    next(error);
-  }
-});
-
-// Get company drivers
-router.get('/drivers/:companyId', authenticate, async (req, res, next) => {
-  try {
-    const { companyId } = req.params;
-    const drivers = await Driver.findByCompany(companyId);
-    res.json({ success: true, data: drivers });
-  } catch (error) {
-    next(error);
-  }
-});
-
-// Get company routes
-router.get('/routes/:companyId', authenticate, async (req, res, next) => {
-  try {
-    const { companyId } = req.params;
-    const routes = await Route.findByCompany(companyId);
-    res.json({ success: true, data: routes });
-  } catch (error) {
-    next(error);
-  }
-});
-
-// Get company trips
+// Public company trips by id
 router.get('/trips/:companyId', authenticate, async (req, res, next) => {
   try {
     const { companyId } = req.params;
     const { status, date } = req.query;
-    
-    // TODO: Implement Trip.findByCompany with filters
-    const trips = await Trip.findByCompany ? 
-      await Trip.findByCompany(companyId, { status, date }) : 
-      [];
-    
+    const trips = await (Trip.findByCompany ? Trip.findByCompany(companyId, { status, date }) : []);
     res.json({ success: true, data: trips });
   } catch (error) {
     next(error);
   }
 });
 
-// Get company bookings/tickets
+// Company bookings by id
 router.get('/bookings/:companyId', authenticate, async (req, res, next) => {
   try {
     const { companyId } = req.params;
     const { status, startDate, endDate } = req.query;
-    
-    // TODO: Implement Ticket.findByCompany with filters
-    const tickets = await Ticket.findByCompany ? 
-      await Ticket.findByCompany(companyId, { status, startDate, endDate }) : 
-      [];
-    
+    const tickets = await (Ticket.findByCompany ? Ticket.findByCompany(companyId, { status, startDate, endDate }) : []);
     res.json({ success: true, data: tickets });
   } catch (error) {
     next(error);
   }
 });
 
-// Get company payments
+// Company payments by id
 router.get('/payments/:companyId', authenticate, async (req, res, next) => {
   try {
     const { companyId } = req.params;

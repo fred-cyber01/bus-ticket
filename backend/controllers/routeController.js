@@ -18,8 +18,10 @@ const normalizeRoute = (route) => {
 // @access  Public
 exports.getRoutes = async (req, res, next) => {
   try {
-    const routes = await Route.findAll();
-    
+    const filters = {};
+    if (req.user && req.user.company_id) filters.company_id = req.user.company_id;
+    const routes = await Route.findAll(filters);
+
     res.status(200).json({
       success: true,
       count: routes.length,

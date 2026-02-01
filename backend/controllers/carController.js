@@ -1,5 +1,6 @@
 // controllers/carController.js
 const Car = require('../models/Car');
+const subscriptionService = require('../services/subscriptionService');
 
 const normalizeCar = (car) => {
   if (!car) return car;
@@ -86,6 +87,16 @@ exports.createCar = async (req, res, next) => {
       return res.status(400).json({
         success: false,
         message: 'plate_number and total_seats (or capacity) are required'
+      });
+    }
+    // Enforce company's bus limit
+    const canAdd = await subscriptionService.canAddBus(company_id);
+    if (!canAdd) {
+      const sub = await subscriptionService.getCompanySubscription(company_id);
+      const limit = sub?.bus_limit ?? 'limit reached';
+      return res.status(403).json({
+        success: false,
+        message: `Bus limit reached for this company. Allowed: ${limit}`
       });
     }
     

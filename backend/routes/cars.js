@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { authenticate, isAdminOrCompany } = require('../middleware/auth');
+const { authenticate, isAdminOrCompany, optionalAuth } = require('../middleware/auth');
 const {
   getCars,
   getCar,
@@ -9,8 +9,8 @@ const {
   deleteCar,
 } = require('../controllers/carController');
 
-router.get('/', getCars);
-router.get('/:id', getCar);
+router.get('/', optionalAuth, getCars);
+router.get('/:id', optionalAuth, getCar);
 router.post('/', authenticate, isAdminOrCompany, createCar);
 router.put('/:id', authenticate, isAdminOrCompany, updateCar);
 router.delete('/:id', authenticate, isAdminOrCompany, deleteCar);

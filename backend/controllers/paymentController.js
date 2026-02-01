@@ -106,9 +106,11 @@ exports.initiatePayment = asyncHandler(async (req, res) => {
 
   } catch (error) {
     console.error('Payment initiation error:', error);
+    // Surface gateway errors when possible to aid debugging
+    const message = (error && error.message) ? error.message : 'Failed to initiate payment. Please try again.';
     res.status(500).json({
       success: false,
-      message: 'Failed to initiate payment. Please try again.'
+      message
     });
   }
 });
@@ -489,19 +491,19 @@ exports.handleMoMoPayWebhook = asyncHandler(async (req, res) => {
   console.log('MoMoPay Webhook received:', req.body);
 
   try {
-    // Find payment by payment code in metadata
-    const payments = await query('SELECT payment_id FROM payments WHERE JSON_EXTRACT(metadata, "$.payment_code") = ?', [paymentCode]);
+    // Find payment by payment code in payment_data JSON
+    const payments = await query('SELECT transaction_ref, payment_data FROM payments WHERE JSON_UNQUOTE(JSON_EXTRACT(payment_data, "$.payment_code")) = ? LIMIT 1', [paymentCode]);
 
     if (payments.length > 0) {
-      const paymentId = payments[0].payment_id;
+      const txRef = payments[0].transaction_ref;
 
       if (status === 'COMPLETED') {
-        await paymentService.updatePaymentStatus(paymentId, 'completed', transactionRef, {
+        await paymentService.updatePaymentStatus(null, 'completed', txRef, {
           webhook_received: true,
           completed_at: new Date().toISOString()
         });
       } else {
-        await paymentService.updatePaymentStatus(paymentId, 'failed', transactionRef, {
+        await paymentService.updatePaymentStatus(null, 'failed', txRef, {
           webhook_received: true,
           failure_reason: status
         });

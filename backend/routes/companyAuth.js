@@ -10,6 +10,7 @@ const config = require('../config/config');
 const db = require('../config/database');
 const subscriptionService = require('../services/subscriptionService');
 const paymentService = require('../services/paymentService');
+const DEFAULT_FREE_BUS_LIMIT = 30;
 
 // Validation rules
 const companyRegisterValidation = [
@@ -66,13 +67,16 @@ router.post('/register', authLimiter, companyRegisterValidation, validate, async
       });
     }
 
-    // Get subscription plan details
-    const plan = await subscriptionService.getPlanById(plan_id);
-    if (!plan) {
-      return res.status(404).json({
-        success: false,
-        message: 'Subscription plan not found'
-      });
+    // Get subscription plan details (plan_id is optional)
+    let plan = null;
+    if (plan_id) {
+      plan = await subscriptionService.getPlanById(plan_id);
+      if (!plan) {
+        return res.status(404).json({
+          success: false,
+          message: 'Subscription plan not found'
+        });
+      }
     }
 
     // Hash password
@@ -87,10 +91,11 @@ router.post('/register', authLimiter, companyRegisterValidation, validate, async
 
       try {
         // Create company (pending approval status)
+        const initialBusLimit = plan ? plan.bus_limit : DEFAULT_FREE_BUS_LIMIT;
         const [companyResult] = await connection.query(
           `INSERT INTO companies (company_name, tin, contact_info, status, subscription_status, current_plan_id, bus_limit) 
            VALUES (?, ?, ?, 'pending', 'expired', ?, ?)`,
-          [company_name, tin, contact_info, plan_id, plan.bus_limit]
+          [company_name, tin, contact_info, plan_id || null, initialBusLimit]
         );
         const companyId = companyResult.insertId;
 
@@ -106,10 +111,11 @@ router.post('/register', authLimiter, companyRegisterValidation, validate, async
         let paymentId = null;
         let responseMessage = '';
 
-        // Handle FREE TRIAL
-        if (plan.name === 'Free Trial' || plan.price === 0) {
+        // Handle FREE TRIAL (no plan_id provided or plan is free)
+        if (!plan || plan.name === 'Free Trial' || plan.price === 0) {
           const trialResult = await subscriptionService.startFreeTrial(companyId, plan_id, connection);
           subscriptionId = trialResult.subscriptionId;
+          plan = trialResult.plan || plan;
 
           responseMessage = `Company registered successfully with ${plan.duration_days}-day free trial! Your account is pending admin approval.`;
         }
@@ -162,7 +168,7 @@ router.post('/register', authLimiter, companyRegisterValidation, validate, async
               break;
           }
 
-          paymentId = paymentResult.paymentId;
+          paymentId = paymentResult.dbId || null;
 
           // Create subscription in pending state (will activate on payment confirmation)
           const [subscriptionResult] = await connection.query(

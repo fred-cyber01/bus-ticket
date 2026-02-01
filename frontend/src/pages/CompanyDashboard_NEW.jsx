@@ -41,14 +41,18 @@ function CompanyDashboard({ token, onNavigate }) {
       });
       const data = await response.json();
       if (data.success) setCompany(data.data);
+      return data.data || null;
     } catch (error) {
       console.error('Error fetching company:', error);
+      return null;
     }
   };
 
   const fetchAllData = async () => {
     setLoading(true);
     try {
+      // Ensure company info is loaded before fetching company-scoped data
+      if (!company) await fetchCompanyInfo();
       await Promise.all([
         fetchBuses(),
         fetchDrivers(),
@@ -83,9 +87,9 @@ function CompanyDashboard({ token, onNavigate }) {
   };
 
   // Fetch helpers
-  const fetchData = async (endpoint, setter) => {
+  const fetchData = async (url, setter) => {
     try {
-      const res = await fetch(`${API_URL}/${endpoint}`, {
+      const res = await fetch(url, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const data = await res.json();
@@ -93,12 +97,12 @@ function CompanyDashboard({ token, onNavigate }) {
     } catch (e) { console.error(e) }
   }
 
-  const fetchBuses = () => fetchData('cars', setBuses);
-  const fetchDrivers = () => fetchData('drivers', setDrivers);
-  const fetchRoutes = () => fetchData('routes', setRoutes);
-  const fetchStops = () => fetchData('stops', setStops);
-  const fetchTrips = () => fetchData('trips', setTrips);
-  const fetchBookings = () => fetchData('tickets', setBookings);
+  const fetchBuses = () => fetchData(`${API_URL}/company/buses/${company?.id || ''}`, setBuses);
+  const fetchDrivers = () => fetchData(`${API_URL}/company/drivers/${company?.id || ''}`, setDrivers);
+  const fetchRoutes = () => fetchData(`${API_URL}/company/routes/${company?.id || ''}`, setRoutes);
+  const fetchStops = () => fetchData(`${API_URL}/stops`, setStops); // stops are global
+  const fetchTrips = () => fetchData(`${API_URL}/company/trips/${company?.id || ''}`, setTrips);
+  const fetchBookings = () => fetchData(`${API_URL}/company/bookings/${company?.id || ''}`, setBookings);
 
   const calculateStats = () => {
     const today = new Date().toISOString().split('T')[0];
@@ -206,12 +210,12 @@ function CompanyDashboard({ token, onNavigate }) {
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {[
-          { icon: '🚌', title: 'Total Buses', value: stats.totalBuses, sub: `${stats.activeBuses || 0} active`, color: 'blue' },
-          { icon: '👤', title: 'Drivers', value: stats.totalDrivers, sub: `${stats.activeDrivers || 0} active`, color: 'emerald' },
-          { icon: '🗺️', title: 'Routes', value: stats.totalRoutes, sub: 'Available routes', color: 'orange' },
-          { icon: '🚦', title: 'Active Trips', value: stats.activeTrips, sub: 'Upcoming trips', color: 'purple' },
-          { icon: '🎫', title: 'Bookings', value: stats.todayBookings, sub: `Total: ${stats.totalBookings || 0}`, color: 'amber' },
-          { icon: '💰', title: 'Revenue', value: `${(stats.totalRevenue || 0).toLocaleString()} RWF`, sub: 'Total earnings', color: 'cyan' },
+          { icon: <img src="https://images.unsplash.com/photo-1542367597-9f6a0b5ca1b0?auto=format&fit=crop&w=64&q=80" alt="buses" className="h-8 w-8 object-cover" />, title: 'Total Buses', value: stats.totalBuses, sub: `${stats.activeBuses || 0} active`, color: 'blue' },
+          { icon: <img src="https://img.icons8.com/color/48/user--v1.png" alt="drivers" className="h-8 w-8" />, title: 'Drivers', value: stats.totalDrivers, sub: `${stats.activeDrivers || 0} active`, color: 'emerald' },
+          { icon: <img src="https://img.icons8.com/color/48/route.png" alt="routes" className="h-8 w-8" />, title: 'Routes', value: stats.totalRoutes, sub: 'Available routes', color: 'orange' },
+          { icon: <img src="https://img.icons8.com/color/48/traffic-jam.png" alt="trips" className="h-8 w-8" />, title: 'Active Trips', value: stats.activeTrips, sub: 'Upcoming trips', color: 'purple' },
+          { icon: <img src="https://img.icons8.com/color/48/ticket.png" alt="bookings" className="h-8 w-8" />, title: 'Bookings', value: stats.todayBookings, sub: `Total: ${stats.totalBookings || 0}`, color: 'amber' },
+          { icon: <img src="https://img.icons8.com/color/48/money-bag.png" alt="revenue" className="h-8 w-8" />, title: 'Revenue', value: `${(stats.totalRevenue || 0).toLocaleString()} RWF`, sub: 'Total earnings', color: 'cyan' },
         ].map((stat, i) => (
           <div key={i} className="card card-hover p-6 flex items-center shadow-sm hover:shadow-md transition-all">
             <div className={`flex-shrink-0 h-14 w-14 rounded-full bg-${stat.color}-100 flex items-center justify-center text-2xl mr-4`}>
@@ -262,7 +266,9 @@ function CompanyDashboard({ token, onNavigate }) {
                   if (col === 'Plate Number' && type === 'bus') {
                     content = (
                       <div className="flex items-center">
-                        <div className="h-10 w-10 text-2xl bg-blue-50 rounded-lg flex items-center justify-center mr-3">🚌</div>
+                        <div className="h-10 w-10 bg-blue-50 rounded-lg flex items-center justify-center mr-3">
+                          <img src="https://images.unsplash.com/photo-1542367597-9f6a0b5ca1b0?auto=format&fit=crop&w=80&q=80" alt="bus" className="h-8 w-8 object-cover rounded" />
+                        </div>
                         <div>
                           <div className="font-bold text-slate-900">{item.plate_number}</div>
                           <div className="text-xs text-slate-500">{item.model}</div>
@@ -465,12 +471,12 @@ function CompanyDashboard({ token, onNavigate }) {
         </div>
         <nav className="sidebar-nav">
           {[
-            { id: 'overview', icon: '📊', label: 'Overview' },
-            { id: 'buses', icon: '🚌', label: 'Fleet' },
-            { id: 'drivers', icon: '👤', label: 'Drivers' },
-            { id: 'routes', icon: '🗺️', label: 'Routes' },
-            { id: 'trips', icon: '🚦', label: 'Trips' },
-            { id: 'bookings', icon: '🎫', label: 'Bookings' },
+            { id: 'overview', icon: <img src="https://img.icons8.com/color/48/combo-chart.png" alt="overview" className="h-5 w-5" />, label: 'Overview' },
+            { id: 'buses', icon: <img src="https://images.unsplash.com/photo-1542367597-9f6a0b5ca1b0?auto=format&fit=crop&w=64&q=80" alt="buses" className="h-5 w-5 object-cover" />, label: 'Fleet' },
+            { id: 'drivers', icon: <img src="https://img.icons8.com/color/48/user--v1.png" alt="drivers" className="h-5 w-5" />, label: 'Drivers' },
+            { id: 'routes', icon: <img src="https://img.icons8.com/color/48/route.png" alt="routes" className="h-5 w-5" />, label: 'Routes' },
+            { id: 'trips', icon: <img src="https://img.icons8.com/color/48/traffic-jam.png" alt="trips" className="h-5 w-5" />, label: 'Trips' },
+            { id: 'bookings', icon: <img src="https://img.icons8.com/color/48/ticket.png" alt="bookings" className="h-5 w-5" />, label: 'Bookings' },
           ].map(item => (
             <button
               key={item.id}
@@ -483,8 +489,8 @@ function CompanyDashboard({ token, onNavigate }) {
           ))}
         </nav>
         <div className="absolute bottom-0 w-full p-4 border-t border-slate-800">
-          <button onClick={() => { localStorage.removeItem('token'); onNavigate('home'); }} className="nav-item w-full text-red-400 hover:bg-red-900/20 hover:text-red-300">
-            <span className="mr-3">🚪</span> Logout
+          <button onClick={() => { localStorage.removeItem('token'); onNavigate('home'); }} className="nav-item w-full text-red-400 hover:bg-red-900/20 hover:text-red-300 flex items-center">
+            <img src="https://img.icons8.com/color/48/exit.png" alt="logout" className="h-4 w-4 mr-3" /> Logout
           </button>
         </div>
       </aside>

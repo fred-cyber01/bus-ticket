@@ -64,7 +64,7 @@ class Company {
 
     if (filters.status) {
       sql += ` AND c.status = ?`;
-      countSql += ` AND status = ?`;
+      countSql += ` AND c.status = ?`;
       params.push(filters.status);
     }
 

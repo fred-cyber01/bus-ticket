@@ -15,29 +15,30 @@ exports.getDashboardStats = async (req, res, next) => {
     
     // Get ticket statistics
     const [todayTickets] = await db.execute(
-      'SELECT COUNT(*) as count FROM tickets WHERE DATE(booking_time) = CURDATE()'
+      // tolerate both booking_time and created_at depending on schema
+      `SELECT COUNT(*) as count FROM tickets WHERE DATE(COALESCE(booking_time, created_at)) = CURDATE()`
     );
-    
+
     const [totalTickets] = await db.execute('SELECT COUNT(*) as count FROM tickets');
-    
+
     const [totalRevenue] = await db.execute(
-      'SELECT SUM(price) as total FROM tickets WHERE payment_status = "paid"'
+      // accept either 'paid' or 'completed' values
+      `SELECT SUM(price) as total FROM tickets WHERE payment_status IN ('paid','completed')`
     );
     
     // Get active trips
     const [activeTrips] = await db.execute(
-      'SELECT COUNT(*) as count FROM trips WHERE status IN ("scheduled", "in-progress") AND trip_date = CURDATE()'
+      "SELECT COUNT(*) as count FROM trips WHERE (status IN ('scheduled', 'in-progress') OR trip_status IN ('scheduled','in-progress')) AND trip_date = CURDATE()"
     );
     
     // Get recent bookings
     const [recentBookings] = await db.execute(
-      `SELECT t.*, u.user_name, r.route_name 
+      `SELECT t.*, u.user_name, r.name as route_name, tr.departure_time, tr.trip_date
        FROM tickets t
-       LEFT JOIN users u ON t.user_id = u.user_id
-       LEFT JOIN trips tr ON t.trip_id = tr.trip_id
-       LEFT JOIN daily_schedules ds ON tr.schedule_id = ds.schedule_id
-       LEFT JOIN routes r ON ds.route_id = r.route_id
-       ORDER BY t.booking_time DESC
+       LEFT JOIN users u ON t.user_id = u.id
+       LEFT JOIN trips tr ON t.trip_id = tr.id
+       LEFT JOIN routes r ON tr.route_id = r.id
+       ORDER BY COALESCE(t.booking_time, t.created_at) DESC
        LIMIT 10`
     );
     

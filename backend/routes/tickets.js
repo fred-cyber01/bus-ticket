@@ -47,6 +47,8 @@ router.get('/', authenticate, ticketController.getBookings);
 router.get('/:id', authenticate, ticketController.getBooking);
 router.get('/:id/download', authenticate, ticketController.downloadTicketPDF);
 router.post('/:id/confirm-payment', authenticate, ticketController.confirmPayment);
+// Driver/Admin can fetch tickets for a trip
+router.get('/trip/:tripId', authenticate, isAdminOrDriver, ticketController.getTripTickets);
 router.put('/:id', authenticate, isAdmin, ticketController.updateTicket);
 router.delete('/:id', authenticate, ticketController.cancelBooking);
 

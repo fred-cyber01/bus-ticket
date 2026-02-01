@@ -53,7 +53,7 @@ exports.payTicket = asyncHandler(async (req, res) => {
     SELECT * FROM payments
     WHERE payment_type = 'ticket'
       AND status = 'pending'
-      AND JSON_UNQUOTE(JSON_EXTRACT(metadata, '$.ticket_id')) = ?
+      AND JSON_UNQUOTE(JSON_EXTRACT(payment_data, '$.ticket_id')) = ?
     ORDER BY created_at DESC
     LIMIT 1
   `,
@@ -66,7 +66,7 @@ exports.payTicket = asyncHandler(async (req, res) => {
       message: 'Payment already initiated. Please confirm on your phone.',
       data: {
         tx_ref: pending[0].transaction_ref,
-        paymentId: pending[0].payment_id,
+        paymentId: pending[0].transaction_ref,
         status: pending[0].status
       }
     });

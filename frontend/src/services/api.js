@@ -93,14 +93,34 @@ const api = {
       endpoint = '/auth/company/signin';
     }
     
-    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(credentials),
-    });
-    return handleResponse(response);
+    try {
+      const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(credentials),
+      });
+      return handleResponse(response);
+    } catch (err) {
+      // If default signin failed, try company-manager login endpoints as a fallback
+      try {
+        const alt1 = await fetch(`${API_BASE_URL}/company-auth/login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(credentials),
+        });
+        return handleResponse(alt1);
+      } catch (err2) {
+        // Try auth/company/signin as last resort
+        const alt2 = await fetch(`${API_BASE_URL}/auth/company/signin`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(credentials),
+        });
+        return handleResponse(alt2);
+      }
+    }
   },
 
   // Trips
@@ -138,6 +158,17 @@ const api = {
 
   getTrip: async (tripId) => {
     const response = await fetch(`${API_BASE_URL}/trips/${tripId}`, {
+      headers: {
+        'Authorization': `Bearer ${getAuthToken()}`,
+      },
+    });
+    return handleResponse(response);
+  },
+
+  // Fetch bookings (tickets). Backend exposes bookings at /api/bookings.
+  // We'll return the parsed response so callers can handle filtering by trip id.
+  getTripTickets: async (tripId) => {
+    const response = await fetch(`${API_BASE_URL}/bookings`, {
       headers: {
         'Authorization': `Bearer ${getAuthToken()}`,
       },

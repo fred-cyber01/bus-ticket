@@ -127,7 +127,8 @@ class Trip {
 
   static async getAvailableTrips(date = null) {
     const currentDate = date || moment().tz('Africa/Kigali').format('YYYY-MM-DD');
-    const currentTime = moment().tz('Africa/Kigali').format('YYYY-MM-DD HH:mm:ss');
+    // Use ISO-like datetime with 'T' separator for safe JS parsing
+    const currentDateTime = moment().tz('Africa/Kigali').format('YYYY-MM-DDTHH:mm:ss');
 
     const sql = `
       SELECT 
@@ -143,7 +144,7 @@ class Trip {
         r.destination_stop_id as destination_id,
         s_dest.name AS destination_stop_name,
         ds.departure_time,
-        CONCAT(?, ' ', ds.departure_time) as full_departure_time,
+        CONCAT(?, 'T', ds.departure_time) as full_departure_time,
         t.id as trip_id,
         t.status as trip_status
       FROM daily_schedules ds
@@ -159,12 +160,13 @@ class Trip {
       WHERE ds.is_active = 1
         AND c.is_active = 1
         AND comp.is_active = 1
-        AND comp.status = 'approved'
-        AND CONCAT(?, ' ', ds.departure_time) > ?
+        -- tolerate schemas where companies.status may be named differently or missing;
+        AND (comp.status = 'approved' OR comp.status IS NULL OR comp.status = "")
+        AND CONCAT(?, 'T', ds.departure_time) > ?
       ORDER BY ds.departure_time ASC
     `;
 
-    const trips = await query(sql, [currentDate, currentDate, currentDate, currentTime]);
+    const trips = await query(sql, [currentDate, currentDate, currentDate, currentDateTime]);
 
     // Get booked seats for each trip
     for (let trip of trips) {
@@ -319,7 +321,8 @@ class Trip {
 
     const approvedOnly = options.approvedOnly !== false;
     if (approvedOnly) {
-      sql += ` AND comp.status = 'approved'`;
+      // tolerate schemas without companies.status by allowing NULL/empty as approved
+      sql += ` AND (comp.status = 'approved' OR comp.status IS NULL OR comp.status = '')`;
     }
 
     sql += ` ORDER BY t.trip_date ASC, t.departure_time ASC`;
@@ -336,19 +339,20 @@ class Trip {
       if (trip.trip_date && trip.departure_time) {
         const dateObj = trip.trip_date instanceof Date ? trip.trip_date : new Date(trip.trip_date);
         if (!isNaN(dateObj.getTime())) {
-          departureDateTime = `${dateObj.toISOString().split('T')[0]} ${trip.departure_time}`;
+          // Use 'T' separator for ISO-like datetime
+          departureDateTime = `${dateObj.toISOString().split('T')[0]}T${trip.departure_time}`;
         } else {
-          // Fallback: use raw trip_date string if available
-          departureDateTime = `${trip.trip_date} ${trip.departure_time}`;
+          // Fallback: use raw trip_date string with T separator
+          departureDateTime = `${trip.trip_date}T${trip.departure_time}`;
         }
       }
 
       if (trip.trip_date && trip.arrival_time) {
         const dateObj2 = trip.trip_date instanceof Date ? trip.trip_date : new Date(trip.trip_date);
         if (!isNaN(dateObj2.getTime())) {
-          arrivalDateTime = `${dateObj2.toISOString().split('T')[0]} ${trip.arrival_time}`;
+          arrivalDateTime = `${dateObj2.toISOString().split('T')[0]}T${trip.arrival_time}`;
         } else {
-          arrivalDateTime = `${trip.trip_date} ${trip.arrival_time}`;
+          arrivalDateTime = `${trip.trip_date}T${trip.arrival_time}`;
         }
       }
       
@@ -369,18 +373,26 @@ class Trip {
       const allSeats = Array.from({ length: totalSeats }, (_, i) => i + 1);
       const availableSeatNumbers = allSeats.filter(seat => !bookedSeatNumbers.includes(seat));
       
+      // Provide both legacy snake_case keys and newer camelCase keys for frontend compatibility
       return {
+        id: trip.id,
         tripId: trip.id,
         origin: trip.origin,
         destination: trip.destination,
+        departure_time: departureDateTime, // legacy key used by older frontend components
+        arrival_time: arrivalDateTime,
         departureTime: departureDateTime,
         arrivalTime: arrivalDateTime,
-        price: trip.price || 5000,
+        price: Number(trip.price) || 5000,
         totalSeats: totalSeats,
+        total_seats: totalSeats,
         availableSeats: availableSeats,
+        available_seats: availableSeats,
         availableSeatNumbers: availableSeatNumbers,
         bookedSeats: bookedSeatNumbers,
+        booked_seats: bookedSeatNumbers,
         busNumber: trip.busNumber,
+        plate_number: trip.busNumber,
         companyName: trip.company_name,
         companyId: trip.company_id,
         status: trip.status
@@ -535,3 +547,34 @@ class Trip {
 }
 
 module.exports = Trip;
+
+// Backwards-compatible helper: find trips belonging to a company (via car -> company_id)
+Trip.findByCompany = async function(companyId, filters = {}) {
+  const params = [companyId];
+
+  let sql = `
+    SELECT t.*,
+           r.name as route_name,
+           c.plate_number, c.name as car_name, c.capacity,
+           d.name as driver_name
+    FROM trips t
+    JOIN routes r ON t.route_id = r.id
+    JOIN cars c ON t.car_id = c.id
+    LEFT JOIN drivers d ON t.driver_id = d.id
+    WHERE c.company_id = ?
+  `;
+
+  if (filters.status) {
+    sql += ` AND t.status = ?`;
+    params.push(filters.status);
+  }
+
+  if (filters.date) {
+    sql += ` AND DATE(t.departure_time) = ?`;
+    params.push(filters.date);
+  }
+
+  sql += ` ORDER BY t.departure_time DESC`;
+
+  return await query(sql, params);
+};

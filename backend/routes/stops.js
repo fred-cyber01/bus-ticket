@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { authenticate, isAdmin } = require('../middleware/auth');
+const { authenticate, isAdmin, optionalAuth } = require('../middleware/auth');
 const {
   getStops,
   getStop,
@@ -9,8 +9,8 @@ const {
   deleteStop,
 } = require('../controllers/stopController');
 
-router.get('/', getStops);
-router.get('/:id', getStop);
+router.get('/', optionalAuth, getStops);
+router.get('/:id', optionalAuth, getStop);
 router.post('/', authenticate, isAdmin, createStop);
 router.put('/:id', authenticate, isAdmin, updateStop);
 router.delete('/:id', authenticate, isAdmin, deleteStop);

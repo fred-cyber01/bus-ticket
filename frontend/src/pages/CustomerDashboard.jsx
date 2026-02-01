@@ -1,29 +1,30 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
+import SeatSelection from './SeatSelection';
 
 // Local lightweight icon components (fallbacks) to avoid dev dependency on lucide-react
 const Icon = ({ children, className = '' }) => (
   <span aria-hidden className={`inline-block ${className}`}>{children}</span>
 );
-const Ticket = (p) => <Icon {...p}>🎫</Icon>;
-const CreditCard = (p) => <Icon {...p}>💳</Icon>;
-const ArrowRight = (p) => <Icon {...p}>➡️</Icon>;
-const MapPin = (p) => <Icon {...p}>📍</Icon>;
-const Calendar = (p) => <Icon {...p}>📅</Icon>;
-const Bus = (p) => <Icon {...p}>🚌</Icon>;
-const QrCode = (p) => <Icon {...p}>▦</Icon>;
-const Download = (p) => <Icon {...p}>⬇️</Icon>;
-const X = (p) => <Icon {...p}>✕</Icon>;
-const Search = (p) => <Icon {...p}>🔍</Icon>;
-const LogOut = (p) => <Icon {...p}>⎋</Icon>;
-const LayoutDashboard = (p) => <Icon {...p}>▥</Icon>;
-const User = (p) => <Icon {...p}>👤</Icon>;
-const Settings = (p) => <Icon {...p}>⚙️</Icon>;
-const HelpCircle = (p) => <Icon {...p}>❓</Icon>;
-const Menu = (p) => <Icon {...p}>☰</Icon>;
-const Bell = (p) => <Icon {...p}>🔔</Icon>;
-const ChevronRight = (p) => <Icon {...p}>›</Icon>;
+const Ticket = (p) => <Icon {...p}><img src="https://img.icons8.com/color/48/ticket.png" alt="ticket" className="h-5 w-5"/></Icon>;
+const CreditCard = (p) => <Icon {...p}><img src="https://img.icons8.com/color/48/bank-card-back-side.png" alt="card" className="h-5 w-5"/></Icon>;
+const ArrowRight = (p) => <Icon {...p}><img src="https://img.icons8.com/color/48/long-arrow-right.png" alt="arrow" className="h-5 w-5"/></Icon>;
+const MapPin = (p) => <Icon {...p}><img src="https://img.icons8.com/color/48/marker.png" alt="pin" className="h-5 w-5"/></Icon>;
+const Calendar = (p) => <Icon {...p}><img src="https://img.icons8.com/color/48/calendar--v1.png" alt="calendar" className="h-5 w-5"/></Icon>;
+const Bus = (p) => <Icon {...p}><img src="https://images.unsplash.com/photo-1542367597-9f6a0b5ca1b0?auto=format&fit=crop&w=64&q=80" alt="bus" className="h-5 w-5 object-cover"/></Icon>;
+const QrCode = (p) => <Icon {...p}><img src="https://img.icons8.com/color/48/qr-code--v1.png" alt="qr" className="h-5 w-5"/></Icon>;
+const Download = (p) => <Icon {...p}><img src="https://img.icons8.com/color/48/download--v1.png" alt="download" className="h-5 w-5"/></Icon>;
+const X = (p) => <Icon {...p}><img src="https://img.icons8.com/color/48/delete-sign.png" alt="close" className="h-5 w-5"/></Icon>;
+const Search = (p) => <Icon {...p}><img src="https://img.icons8.com/color/48/search--v1.png" alt="search" className="h-5 w-5"/></Icon>;
+const LogOut = (p) => <Icon {...p}><img src="https://img.icons8.com/color/48/exit.png" alt="logout" className="h-5 w-5"/></Icon>;
+const LayoutDashboard = (p) => <Icon {...p}><img src="https://img.icons8.com/color/48/dashboard.png" alt="layout" className="h-5 w-5"/></Icon>;
+const User = (p) => <Icon {...p}><img src="https://img.icons8.com/color/48/user--v1.png" alt="user" className="h-5 w-5"/></Icon>;
+const Settings = (p) => <Icon {...p}><img src="https://img.icons8.com/color/48/settings.png" alt="settings" className="h-5 w-5"/></Icon>;
+const HelpCircle = (p) => <Icon {...p}><img src="https://img.icons8.com/color/48/help.png" alt="help" className="h-5 w-5"/></Icon>;
+const Menu = (p) => <Icon {...p}><img src="https://img.icons8.com/color/48/menu--v1.png" alt="menu" className="h-5 w-5"/></Icon>;
+const Bell = (p) => <Icon {...p}><img src="https://img.icons8.com/color/48/appointment-reminders--v1.png" alt="bell" className="h-5 w-5"/></Icon>;
+const ChevronRight = (p) => <Icon {...p}><img src="https://img.icons8.com/color/48/chevron-right.png" alt="chevron" className="h-5 w-5"/></Icon>;
 
 // --- Note ---
 // This dashboard now fetches real data from the backend using `api` helper.
@@ -37,6 +38,9 @@ export default function CustomerDashboard() {
   const [payments, setPayments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedTicket, setSelectedTicket] = useState(null);
+  const [bookings, setBookings] = useState([]);
+  const [loadingBookings, setLoadingBookings] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchOrigin, setSearchOrigin] = useState('');
   const [searchDestination, setSearchDestination] = useState('');
@@ -45,6 +49,7 @@ export default function CustomerDashboard() {
   const [uniqueOrigins, setUniqueOrigins] = useState([]);
   const [uniqueDestinations, setUniqueDestinations] = useState([]);
   const [buyingTicket, setBuyingTicket] = useState(null);
+  const [seatTrip, setSeatTrip] = useState(null);
   const [payPhone, setPayPhone] = useState('');
   const [payStatus, setPayStatus] = useState(null);
   const [showCreateTrip, setShowCreateTrip] = useState(false);
@@ -68,9 +73,84 @@ export default function CustomerDashboard() {
         const tripsRes = await api.getTrips();
         const paymentsRes = await api.getPaymentHistory().catch(() => ({ data: [] }));
 
+        // If this is a regular customer (not admin/company manager), prefer showing their bookings as "My Tickets"
+        const showBookingsForCustomer = !(isAdmin?.() || isCompanyManager?.());
+        if (showBookingsForCustomer) {
+          try {
+            const bookingsRes = await api.getBookings().catch(() => ({ data: [] }));
+            const rawBookings = bookingsRes.data || [];
+            const normalizeDeparture = (item) => {
+              const candidates = [item.departure_time, item.departureTime, item.trip_date && item.departure_time ? `${item.trip_date}T${item.departure_time}` : null];
+              for (const c of candidates) {
+                if (!c) continue;
+                try {
+                  const s = String(c).trim();
+                  const fixed = s.includes(' ') && s.includes('-') ? s.replace(' ', 'T') : s;
+                  const withSeconds = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(fixed) ? fixed + ':00' : fixed;
+                  const d = new Date(withSeconds);
+                  if (!isNaN(d.getTime())) return d.toISOString();
+                } catch (e) {}
+              }
+              return null;
+            };
+
+            const bookings = rawBookings.map(b => ({
+              id: b.id,
+              boarding_stop_name: b.boarding_stop_name || b.boarding || '',
+              dropoff_stop_name: b.dropoff_stop_name || b.dropoff || '',
+              departure_time: normalizeDeparture(b),
+              price: Number(b.price || b.totalAmount || b.total_price || 0),
+              seat_number: b.seat_number || b.seat || null,
+              route_name: b.route_name || '',
+              plate_number: b.plate_number || b.bus_plate || '' ,
+              company_name: b.company_name || '' ,
+              status: b.ticket_status || b.status || ''
+            }));
+
+            setTickets(bookings);
+          } catch (e) {
+            console.warn('Failed to load bookings for customer view', e);
+          }
+        }
+
         if (!mounted) return;
 
         let trips = tripsRes.data || [];
+        // Normalize trips to ensure departure_time (ISO) and price are present
+        const normalizeDeparture = (item) => {
+          const candidates = [item.departure_time, item.departureTime, item.full_departure_time, item.trip_date && item.departure_time ? `${item.trip_date}T${item.departure_time}` : null, item.trip_date && item.departureTime ? `${item.trip_date}T${item.departureTime}` : null];
+          for (const c of candidates) {
+            if (!c) continue;
+            try {
+              const s = String(c).trim();
+              // tolerate 'YYYY-MM-DD HH:MM' => 'T'
+              const fixed = s.includes(' ') && s.includes('-') ? s.replace(' ', 'T') : s;
+              const withSeconds = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(fixed) ? fixed + ':00' : fixed;
+              const d = new Date(withSeconds);
+              if (!isNaN(d.getTime())) return d.toISOString();
+            } catch (e) { /* ignore */ }
+          }
+          return null;
+        };
+
+        const normalizePrice = (item) => {
+          const p = item.price ?? item.fare ?? item.totalAmount ?? item.total_price ?? item.amount ?? 0;
+          const n = Number(p || 0);
+          return Number.isFinite(n) ? n : 0;
+        };
+
+        trips = trips.map(s => ({
+          id: s.id || s.tripId || s.schedule_id || Math.random(),
+          route_name: s.route_name || s.name || s.routeName || '',
+          boarding_stop_name: s.origin_stop_name || s.origin || s.boarding_stop_name || s.originName || '',
+          dropoff_stop_name: s.destination_stop_name || s.destination || s.dropoff_stop_name || s.destinationName || '',
+          departure_time: normalizeDeparture(s),
+          price: normalizePrice(s),
+          seat_number: s.seat_number || null,
+          availableSeats: s.available_seats ?? s.availableSeats ?? s.totalSeats ?? 0,
+          bus_number: s.plate_number || s.busNumber || s.bus_number || '',
+          company_name: s.company_name || s.companyName || ''
+        }));
         // If no trips returned for customers, fall back to available schedules (public)
         if ((!trips || trips.length === 0) && mounted) {
           try {
@@ -116,7 +196,11 @@ export default function CustomerDashboard() {
           }
         }
 
-        setTickets(trips);
+        if (!(isAdmin?.() || isCompanyManager?.())) {
+          // customers already had bookings loaded above; avoid overwriting
+        } else {
+          setTickets(trips);
+        }
         setPayments(paymentsRes.data || []);
 
         // derive unique origins/destinations for autocomplete
@@ -182,6 +266,25 @@ export default function CustomerDashboard() {
     return () => { mounted = false; };
   }, []);
 
+  useEffect(() => {
+    let mounted = true;
+    async function loadBookings() {
+      setLoadingBookings(true);
+      try {
+        const res = await api.getBookings();
+        if (!mounted) return;
+        if (res && res.data) setBookings(res.data);
+      } catch (err) {
+        console.error('Failed to load bookings', err);
+      } finally {
+        if (mounted) setLoadingBookings(false);
+      }
+    }
+
+    loadBookings();
+    return () => { mounted = false; };
+  }, []);
+
   const handleSearch = async () => {
     try {
       setLoading(true);
@@ -190,7 +293,41 @@ export default function CustomerDashboard() {
       if (searchDestination) filters.destination = searchDestination;
 
       const res = await api.getTrips(filters);
-      setTickets(res.data || []);
+      const raw = res.data || [];
+      const normalizeDeparture = (item) => {
+        const candidates = [item.departure_time, item.departureTime, item.full_departure_time, item.trip_date && item.departure_time ? `${item.trip_date}T${item.departure_time}` : null, item.trip_date && item.departureTime ? `${item.trip_date}T${item.departureTime}` : null];
+        for (const c of candidates) {
+          if (!c) continue;
+          try {
+            const s = String(c).trim();
+            const fixed = s.includes(' ') && s.includes('-') ? s.replace(' ', 'T') : s;
+            const withSeconds = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(fixed) ? fixed + ':00' : fixed;
+            const d = new Date(withSeconds);
+            if (!isNaN(d.getTime())) return d.toISOString();
+          } catch (e) { }
+        }
+        return null;
+      };
+      const normalizePrice = (item) => {
+        const p = item.price ?? item.fare ?? item.totalAmount ?? item.total_price ?? item.amount ?? 0;
+        const n = Number(p || 0);
+        return Number.isFinite(n) ? n : 0;
+      };
+
+      const mapped = raw.map(s => ({
+        id: s.id || s.tripId || s.schedule_id || Math.random(),
+        route_name: s.route_name || s.name || s.routeName || '',
+        boarding_stop_name: s.origin_stop_name || s.origin || s.boarding_stop_name || s.originName || '',
+        dropoff_stop_name: s.destination_stop_name || s.destination || s.dropoff_stop_name || s.destinationName || '',
+        departure_time: normalizeDeparture(s),
+        price: normalizePrice(s),
+        seat_number: s.seat_number || null,
+        availableSeats: s.available_seats ?? s.availableSeats ?? s.totalSeats ?? 0,
+        bus_number: s.plate_number || s.busNumber || s.bus_number || '',
+        company_name: s.company_name || s.companyName || ''
+      }));
+
+      setTickets(mapped);
     } catch (err) {
       console.error('Search error', err);
       alert('Error searching trips: ' + (err.message || 'Unknown'));
@@ -231,7 +368,27 @@ export default function CustomerDashboard() {
 
   const handleDownload = (e, id) => {
     e.stopPropagation();
-    alert(`Downloading PDF for Ticket #${id}...\n(This is a preview, so no actual file is generated)`);
+    (async () => {
+      try {
+        let booking = null;
+        if (id && typeof id === 'object') booking = id;
+        else if (id) {
+          const res = await api.getBooking(id).catch(() => null);
+          booking = res && res.data ? res.data : null;
+        }
+        if (!booking) return alert('Unable to fetch ticket details for download');
+
+        const html = `<!doctype html><html><head><meta charset="utf-8"><title>Ticket #${booking.id}</title><meta name="viewport" content="width=device-width,initial-scale=1"><style>body{font-family:system-ui,-apple-system,Segoe UI,Roboto,'Helvetica Neue',Arial;padding:24px;color:#111} .ticket{max-width:720px;margin:0 auto;border:1px solid #e5e7eb;padding:20px;border-radius:12px} h1{font-size:20px;margin-bottom:6px} p{margin:4px 0}</style></head><body><div class="ticket"><h1>Ticket #${booking.id}</h1><p><strong>Passenger:</strong> ${booking.passenger_name || booking.user_name || booking.user || ''}</p><p><strong>Trip:</strong> ${booking.route_name || booking.route || (booking.origin && booking.destination ? booking.origin + ' → ' + booking.destination : '')}</p><p><strong>Departure:</strong> ${booking.departure_time ? new Date(booking.departure_time).toLocaleString() : ''}</p><p><strong>Seat:</strong> ${booking.seat_number || ''}</p><p><strong>Price:</strong> ${booking.price ? booking.price + ' RWF' : ''}</p><hr/><p style="font-size:12px;color:#6b7280">Present this page at boarding. Save or print as PDF.</p></div><script>window.onload = function(){ window.print(); };</script></body></html>`;
+
+        const w = window.open('', '_blank');
+        if (!w) return alert('Please allow popups to download ticket');
+        w.document.write(html);
+        w.document.close();
+      } catch (err) {
+        console.error('Download failed', err);
+        alert('Download failed: ' + (err.message || 'Unknown'));
+      }
+    })();
   };
 
   const handleLogout = () => {
@@ -250,9 +407,25 @@ export default function CustomerDashboard() {
   });
 
   const openBuy = (trip) => {
+    // Keep for backward compatibility (not used for seat flow)
     setBuyingTicket(trip);
     setPayPhone('');
     setPayStatus(null);
+  };
+
+  const openSeatSelector = (ticket) => {
+    // map ticket to SeatSelection expected trip shape
+    const tripForSeats = {
+      tripId: ticket.id || ticket.trip_id,
+      origin: ticket.boarding_stop_name || ticket.origin || ticket.origin_stop_name,
+      destination: ticket.dropoff_stop_name || ticket.destination || ticket.destination_stop_name,
+      departureTime: ticket.departure_time || ticket.departureTime || ticket.full_departure_time,
+      totalSeats: ticket.totalSeats || ticket.availableSeats || ticket.total_seats || 50,
+      price: ticket.price || 0,
+      busNumber: ticket.bus_number || ticket.plate_number || ticket.busNumber,
+      companyName: ticket.company_name || ticket.companyName || ''
+    };
+    setSeatTrip(tripForSeats);
   };
 
   const initiatePayment = async () => {
@@ -264,7 +437,8 @@ export default function CustomerDashboard() {
       const payload = {
         amount: buyingTicket.price || 0,
         phone_number: payPhone,
-        payment_type: 'ticket',
+          payment_type: 'ticket',
+          payment_method: 'mtn_momo',
         user_id: user?.id,
         metadata: { trip_id: buyingTicket.id }
       };
@@ -356,7 +530,7 @@ export default function CustomerDashboard() {
           </div>
 
           <div className="relative mb-6">
-            <div className="flex items-center justify-between relative z-10">
+                    <div className="flex items-center justify-between relative z-10">
               <div className="flex flex-col items-start w-1/3">
                 <span className="text-xl font-black text-slate-900 leading-none mb-1">
                   {ticket.boarding_stop_name?.split(' ')[0].substring(0, 3).toUpperCase()}
@@ -370,10 +544,10 @@ export default function CustomerDashboard() {
                 <div className="text-slate-300 mb-1">
                    <Bus size={18} className={isConfirmed ? "text-indigo-400" : "text-amber-400"} />
                 </div>
-                <div className="w-full h-px bg-slate-200 border-t border-dashed border-slate-300 relative">
+                    <div className="w-full h-px bg-slate-200 border-t border-dashed border-slate-300 relative">
                   <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-white px-1.5">
                     <span className="text-[9px] text-slate-400 font-bold tracking-tight">
-                      {new Date(ticket.departure_time).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                      {ticket.departure_time ? new Date(ticket.departure_time).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : 'N/A'}
                     </span>
                   </div>
                 </div>
@@ -395,7 +569,7 @@ export default function CustomerDashboard() {
               <p className="flex items-center gap-1 text-[10px] uppercase text-slate-400 font-bold tracking-wider mb-0.5">
                 <Calendar size={10} /> Date
               </p>
-              <p className="text-xs font-semibold text-slate-700">{new Date(ticket.departure_time).toLocaleDateString()}</p>
+              <p className="text-xs font-semibold text-slate-700">{ticket.departure_time ? new Date(ticket.departure_time).toLocaleDateString() : 'N/A'}</p>
             </div>
             <div className="text-right">
               <p className="flex items-center justify-end gap-1 text-[10px] uppercase text-slate-400 font-bold tracking-wider mb-0.5">
@@ -411,7 +585,7 @@ export default function CustomerDashboard() {
 
             <div className="flex flex-col">
               <span className="text-[10px] text-slate-400 font-medium">Price</span>
-              <span className="text-sm font-bold text-indigo-600">{(ticket.price).toLocaleString()} RWF</span>
+              <span className="text-sm font-bold text-indigo-600">{Number(ticket.price || 0).toLocaleString()} RWF</span>
             </div>
 
             <div className="flex items-center gap-2">
@@ -423,7 +597,7 @@ export default function CustomerDashboard() {
               </button>
 
               <button
-                onClick={(e) => { e.stopPropagation(); openBuy(ticket); }}
+                onClick={(e) => { e.stopPropagation(); openSeatSelector(ticket); }}
                 className="flex items-center gap-1.5 py-2 px-4 rounded-lg text-xs font-bold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 transition-colors border border-indigo-100"
               >
                 Buy
@@ -488,22 +662,78 @@ export default function CustomerDashboard() {
                <div>
                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">My Tickets</p>
                  <div className="space-y-2 max-h-40 overflow-y-auto scrollbar-hide">
-                   {payments && payments.length > 0 ? (
-                     payments.slice(0,6).map(p => (
-                       <div key={p.id} className="flex items-center justify-between bg-slate-50 p-2 rounded">
-                         <div>
-                           <div className="text-xs font-medium text-slate-700">{p.description || p.metadata?.trip_id || p.transactionRef}</div>
-                           <div className="text-[10px] text-slate-400">{new Date(p.createdAt).toLocaleDateString()}</div>
-                         </div>
-                         <div className="flex items-center gap-2">
-                           <button onClick={() => alert('View ticket not implemented in sidebar')} className="text-xs text-indigo-600">View</button>
-                           <button onClick={() => alert('Download ticket placeholder')} className="text-xs text-slate-600">Download</button>
-                         </div>
-                       </div>
-                     ))
-                   ) : (
-                     <div className="text-[12px] text-slate-400">No tickets yet</div>
-                   )}
+                  {payments && payments.length > 0 ? (
+                    payments.slice(0,6).map(p => (
+                      <div key={p.id} className="flex items-center justify-between bg-slate-50 p-2 rounded">
+                        <div>
+                          <div className="text-xs font-medium text-slate-700">{p.description || p.metadata?.trip_id || p.transactionRef}</div>
+                          <div className="text-[10px] text-slate-400">{new Date(p.createdAt).toLocaleDateString()}</div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={async () => {
+                              try {
+                                // Try to fetch a booking linked to this payment
+                                let booking = null;
+                                // common metadata keys
+                                const bookingId = p.metadata?.booking_id || p.metadata?.bookingId || p.metadata?.trip_id || null;
+                                if (bookingId) {
+                                  const res = await api.getBooking(bookingId).catch(() => null);
+                                  booking = res && res.data ? res.data : null;
+                                }
+
+                                if (!booking) {
+                                  // fallback: try fetch by payment id or transactionRef
+                                  const all = await api.getBookings().catch(() => ({ data: [] }));
+                                  const list = all.data || [];
+                                  booking = list.find(b => String(b.payment_id) === String(p.id) || String(b.transactionRef) === String(p.transactionRef) || (b.payment && String(b.payment.id) === String(p.id)));
+                                }
+
+                                if (booking) {
+                                  setSelectedTicket(booking);
+                                  setSidebarOpen(false);
+                                } else {
+                                  alert('Unable to locate ticket for this payment.');
+                                }
+                              } catch (err) {
+                                console.error('View ticket error', err);
+                                alert('Failed to view ticket');
+                              }
+                            }}
+                            className="text-xs text-indigo-600"
+                          >
+                            View
+                          </button>
+                          <button onClick={async (e) => {
+                              e.stopPropagation();
+                              try {
+                                let booking = null;
+                                const bookingId = p.metadata?.booking_id || p.metadata?.bookingId || p.metadata?.trip_id || null;
+                                if (bookingId) {
+                                  const res = await api.getBooking(bookingId).catch(() => null);
+                                  booking = res && res.data ? res.data : null;
+                                }
+                                if (!booking) {
+                                  const all = await api.getBookings().catch(() => ({ data: [] }));
+                                  const list = all.data || [];
+                                  booking = list.find(b => String(b.payment_id) === String(p.id) || String(b.transactionRef) === String(p.transactionRef) || (b.payment && String(b.payment.id) === String(p.id)));
+                                }
+                                if (booking) {
+                                  handleDownload(e, booking);
+                                } else {
+                                  alert('Unable to locate ticket for download.');
+                                }
+                              } catch (err) {
+                                console.error('Download lookup failed', err);
+                                alert('Download failed');
+                              }
+                            }} className="text-xs text-slate-600">Download</button>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="text-[12px] text-slate-400">No tickets yet</div>
+                  )}
                  </div>
                </div>
              </div>
@@ -563,6 +793,7 @@ export default function CustomerDashboard() {
                 <Bell size={20} />
                 <span className="absolute top-2 right-2.5 w-2 h-2 bg-red-500 rounded-full border border-white"></span>
              </button>
+             <button onClick={() => setSidebarOpen(true)} className="px-3 py-2 bg-indigo-50 text-indigo-700 rounded-full text-sm font-semibold hidden sm:inline">My Tickets</button>
              {activeTab === 'tickets' && canManage() && (
                <button onClick={() => setShowCreateTrip(true)} className="hidden sm:flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white text-sm font-bold rounded-full shadow-lg shadow-indigo-600/20 transition-all hover:scale-105 active:scale-95">
                   New Trip <ArrowRight size={16} />
@@ -654,6 +885,73 @@ export default function CustomerDashboard() {
         </div>
       </main>
 
+      {sidebarOpen && (
+        <div className="fixed right-0 top-0 h-full w-96 bg-white shadow-2xl z-50 overflow-y-auto">
+          <div className="flex items-center justify-between p-4 border-b">
+            <h3 className="font-bold">My Tickets</h3>
+            <div className="flex items-center gap-2">
+              <button onClick={() => setSidebarOpen(false)} className="text-slate-500 hover:text-slate-800"><X /></button>
+            </div>
+          </div>
+
+          <div className="p-4 space-y-3">
+            {loadingBookings ? (
+              <div className="text-sm text-slate-500">Loading your tickets...</div>
+            ) : bookings && bookings.length > 0 ? (
+              bookings.map((b) => (
+                <div key={b.id} className="bg-slate-50 p-3 rounded-lg border border-slate-100">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <div className="text-xs text-slate-400">#{String(b.id).padStart(6,'0')}</div>
+                      <div className="font-bold text-slate-800">{b.route_name || b.origin + ' → ' + b.destination}</div>
+                      <div className="text-[12px] text-slate-500">{b.seat_number ? `Seat ${b.seat_number}` : ''}</div>
+                    </div>
+                    <div className="text-right text-xs text-slate-400">
+                      {b.departure_time ? new Date(b.departure_time).toLocaleDateString() : ''}
+                    </div>
+                  </div>
+
+                  <div className="mt-3 flex items-center gap-2">
+                    <button onClick={() => { setSelectedTicket(b); setSidebarOpen(false); }} className="px-3 py-1 text-sm bg-white border rounded">View</button>
+                    <button onClick={(e) => { e.stopPropagation(); handleDownload(e, b); }} className="px-3 py-1 text-sm bg-indigo-600 text-white rounded">Download</button>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div className="text-sm text-slate-400">No tickets found.</div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Seat selection modal */}
+      {seatTrip && (
+        <div className="fixed inset-0 z-[80] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-slate-900/40" onClick={() => setSeatTrip(null)}></div>
+          <div className="relative w-full max-w-5xl h-[90vh] bg-transparent overflow-hidden">
+            <div className="bg-white rounded-2xl shadow-2xl h-full overflow-auto">
+              <SeatSelection
+                trip={seatTrip}
+                onBack={() => setSeatTrip(null)}
+                onBookingComplete={async () => {
+                  // refresh bookings (do not automatically close modal; SeatSelection will call onBack)
+                  try {
+                    setLoadingBookings(true);
+                    const res = await api.getBookings().catch(() => ({ data: [] }));
+                    setBookings(res.data || []);
+                  } catch (err) {
+                    console.error('Failed to refresh bookings', err);
+                  } finally {
+                    setLoadingBookings(false);
+                    // switch to tickets tab to show new booking
+                    setActiveTab('tickets');
+                  }
+                }}
+              />
+            </div>
+          </div>
+        </div>
+      )}
       {/* --- Ticket Modal (Same as before) --- */}
       {/* --- Buy Modal --- */}
       {buyingTicket && (
@@ -725,68 +1023,87 @@ export default function CustomerDashboard() {
             className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm transition-opacity"
             onClick={() => setSelectedTicket(null)}
           ></div>
-          
-          <div className="relative bg-white rounded-3xl shadow-2xl w-full max-w-sm overflow-hidden animate-slide-right">
-            <div className="bg-[#1e1b4b] px-6 py-8 text-white text-center relative overflow-hidden">
-               <div className="absolute top-0 left-0 w-full h-full opacity-20 bg-[radial-gradient(circle_at_top_right,_var(--tw-gradient-stops))] from-indigo-400 to-transparent"></div>
-               <div className="absolute top-0 right-0 w-full h-full opacity-10" style={{backgroundImage: 'radial-gradient(#ffffff 1px, transparent 1px)', backgroundSize: '20px 20px'}}></div>
-               
-               <h3 className="text-2xl font-bold relative z-10 tracking-tight">Boarding Pass</h3>
-               <p className="text-indigo-200 text-xs font-medium uppercase tracking-widest relative z-10 mt-1">Bus Service Rwanda</p>
-               
-               <button 
-                onClick={() => setSelectedTicket(null)}
-                className="absolute top-4 right-4 text-white/50 hover:text-white hover:bg-white/10 rounded-full p-1.5 transition-all"
-               >
-                 <X size={20} />
-               </button>
+
+          <div className="relative bg-white rounded-lg shadow-lg w-full max-w-lg overflow-hidden">
+            {/* Header */}
+            <div className="bg-blue-600 text-white text-center py-4 px-4">
+              <h1 className="text-xl font-bold">BUS COMPANY</h1>
+              <p className="text-xs mt-1">E-Ticket - Rwanda Bus Service</p>
             </div>
 
-            <div className="px-6 pb-6 bg-white relative">
-              <div className="flex justify-center -mt-10 mb-6 relative z-20">
-                <div className="bg-white p-3 rounded-2xl shadow-xl shadow-slate-200/50">
-                  <div className="w-40 h-40 bg-slate-900 rounded-xl flex items-center justify-center text-white">
-                    <QrCode size={80} />
+            {/* Orange ticket number bar */}
+            <div className="bg-orange-500 text-white text-center py-1 text-sm font-semibold">TICKET #{selectedTicket.booking_reference || selectedTicket.bookingId || selectedTicket.id || 'undefined'}</div>
+
+            <div className="p-4 max-h-[70vh] overflow-auto">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Passenger Information */}
+                <div>
+                  <h4 className="text-sm font-semibold text-slate-700 mb-2 bg-slate-100 p-2">PASSENGER INFORMATION</h4>
+                  <div className="text-sm">
+                    <div className="flex justify-between py-1"><span className="text-slate-600">Full Name:</span><span className="font-semibold">{selectedTicket.passenger_name || 'N/A'}</span></div>
+                    <div className="flex justify-between py-1"><span className="text-slate-600">Phone:</span><span className="font-semibold">{selectedTicket.passenger_phone || selectedTicket.user_phone || 'N/A'}</span></div>
+                    <div className="flex justify-between py-1"><span className="text-slate-600">Email:</span><span className="font-semibold">{selectedTicket.passenger_email || selectedTicket.user_email || 'N/A'}</span></div>
+                    <div className="flex justify-between py-1"><span className="text-slate-600">ID Number:</span><span className="font-semibold">{selectedTicket.id_number || '1234567890123456'}</span></div>
+                  </div>
+                </div>
+
+                {/* Trip Details */}
+                <div>
+                  <h4 className="text-sm font-semibold text-slate-700 mb-3 bg-slate-100 p-2">TRIP DETAILS</h4>
+                  <div className="text-sm">
+                    <div className="flex justify-between py-1"><span className="text-slate-600">From:</span><span className="font-semibold">{selectedTicket.origin || selectedTicket.from || 'N/A'}</span></div>
+                    <div className="flex justify-between py-1"><span className="text-slate-600">To:</span><span className="font-semibold">{selectedTicket.destination || selectedTicket.to || 'N/A'}</span></div>
+                    <div className="flex justify-between py-1"><span className="text-slate-600">Date:</span><span className="font-semibold">{selectedTicket.departure_time ? new Date(selectedTicket.departure_time).toLocaleDateString() : 'Invalid Date'}</span></div>
+                    <div className="flex justify-between py-1"><span className="text-slate-600">Time:</span><span className="font-semibold">{selectedTicket.departure_time ? new Date(selectedTicket.departure_time).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : 'Invalid Date'}</span></div>
+                    <div className="flex justify-between py-1"><span className="text-slate-600">Bus Plate:</span><span className="font-semibold">{selectedTicket.plate_number || 'N/A'}</span></div>
+                    <div className="flex justify-between py-1"><span className="text-slate-600">Company:</span><span className="font-semibold">{selectedTicket.company_name || 'N/A'}</span></div>
+                    <div className="flex justify-between py-1"><span className="text-slate-600">Seat Number:</span><span className="font-semibold text-orange-600">{selectedTicket.seat_number || 'undefined'}</span></div>
                   </div>
                 </div>
               </div>
 
-              <div className="space-y-4 mb-6">
-                <div className="flex justify-between items-center border-b border-dashed border-slate-100 pb-3">
-                   <div className="text-left">
-                     <span className="block text-[10px] uppercase text-slate-400 font-bold tracking-wider mb-1">Passenger</span>
-                     <span className="block font-bold text-slate-900">{selectedTicket.passenger_name}</span>
-                   </div>
-                   <div className="text-right">
-                     <span className="block text-[10px] uppercase text-slate-400 font-bold tracking-wider mb-1">Bus Plate</span>
-                     <span className="block font-bold text-slate-900">{selectedTicket.plate_number}</span>
-                   </div>
+              {/* Pricing */}
+              <div className="mt-6 bg-slate-50 p-4 rounded">
+                <h4 className="text-sm font-semibold text-slate-700 mb-3">PRICING DETAILS</h4>
+                <div className="flex justify-between py-1"><span className="text-slate-600">Ticket Fare:</span><span className="font-semibold">{(selectedTicket.price || selectedTicket.fare || 0).toLocaleString()} RWF</span></div>
+                <div className="flex justify-between py-1"><span className="text-slate-600">Service Fee:</span><span className="font-semibold">{(selectedTicket.service_fee || 500).toLocaleString()} RWF</span></div>
+                <div className="border-t mt-3 pt-3 flex justify-between items-center"><span className="font-bold">TOTAL PAID:</span><span className="text-orange-600 font-extrabold">{((selectedTicket.price || selectedTicket.fare || 0) + (selectedTicket.service_fee || 500)).toLocaleString()} RWF</span></div>
+              </div>
+
+              {/* Payment Details & QR */}
+              <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
+                <div>
+                  <h4 className="text-sm font-semibold text-slate-700 mb-3 bg-slate-100 p-2">PAYMENT DETAILS</h4>
+                  <div className="text-sm">
+                    <div className="flex justify-between py-1"><span className="text-slate-600">Payment Method:</span><span className="font-semibold">{selectedTicket.payment_method || 'MTN Mobile Money'}</span></div>
+                    <div className="flex justify-between py-1"><span className="text-slate-600">Transaction ID:</span><span className="font-semibold">{selectedTicket.transaction_id || selectedTicket.txn || ('TXN' + (selectedTicket.id || '000') + (selectedTicket.booking_reference || 'undefined'))}</span></div>
+                    <div className="flex justify-between py-1"><span className="text-slate-600">Payment Status:</span><span className="font-semibold text-green-600">{(selectedTicket.payment_status || selectedTicket.status || 'PENDING').toUpperCase()}</span></div>
+                  </div>
                 </div>
-                
-                <div className="flex justify-between items-center border-b border-dashed border-slate-100 pb-3">
-                   <div className="text-left">
-                     <span className="block text-[10px] uppercase text-slate-400 font-bold tracking-wider mb-1">Departure</span>
-                     <span className="block font-bold text-slate-900">
-                        {new Date(selectedTicket.departure_time).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
-                     </span>
-                     <span className="block text-xs text-slate-500">{new Date(selectedTicket.departure_time).toLocaleDateString()}</span>
-                   </div>
-                   <div className="text-right">
-                     <span className="block text-[10px] uppercase text-slate-400 font-bold tracking-wider mb-1">Seat</span>
-                     <span className="block text-3xl font-black text-indigo-600">{selectedTicket.seat_number}</span>
-                   </div>
+
+                <div className="flex flex-col items-center">
+                  <h4 className="text-sm font-semibold text-slate-700 mb-3">SCAN TO VERIFY</h4>
+                  <div className="bg-white p-2 rounded shadow-sm">
+                    <img alt="QR" src={selectedTicket.qr_code || selectedTicket.qr || `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(JSON.stringify(selectedTicket))}`} className="w-32 h-32 object-contain" />
+                  </div>
                 </div>
               </div>
-              
-              <button
-                onClick={(e) => handleDownload(e, selectedTicket.id)}
-                className="w-full py-4 bg-slate-900 hover:bg-slate-800 text-white text-sm font-bold rounded-xl shadow-lg shadow-slate-900/20 transition-all active:scale-95 flex items-center justify-center gap-2"
-              >
-                <Download size={18} /> Save to Phone
-              </button>
+
+              {/* Save button */}
+              <div className="mt-4">
+                <button onClick={(e) => handleDownload(e, selectedTicket.id)} className="w-full py-2 bg-slate-900 text-white text-sm font-semibold rounded">Save / Download Ticket</button>
+              </div>
+
+              {/* Footer terms */}
+              <div className="mt-6 text-xs text-slate-500 border-t pt-3">
+                <div className="mb-2">Terms & Conditions:</div>
+                <ul className="list-disc pl-5">
+                  <li>Please arrive 15 minutes before departure time</li>
+                  <li>This ticket is non-refundable and non-transferable</li>
+                  <li>Valid ID required for boarding</li>
+                </ul>
+              </div>
             </div>
-            
-            <div className="h-4 bg-slate-900 w-full relative" style={{background: 'radial-gradient(circle, transparent 50%, #1e1b4b 50%) -8px -8px / 16px 16px repeat-x'}}></div>
           </div>
         </div>
       )}

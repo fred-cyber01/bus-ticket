@@ -160,9 +160,12 @@ function AdminDashboard({ token, onNavigate }) {
         distance: routeForm.distance ? Number(routeForm.distance) : undefined,
         description: routeForm.description || undefined
       };
+      // If editingRoute is set, perform update (PUT); otherwise create (POST)
+      const url = editingRoute ? `${API_URL}/routes/${editingRoute.id}` : `${API_URL}/routes`;
+      const method = editingRoute ? 'PUT' : 'POST';
 
-      const res = await fetch(`${API_URL}/routes`, {
-        method: 'POST',
+      const res = await fetch(url, {
+        method,
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -172,15 +175,47 @@ function AdminDashboard({ token, onNavigate }) {
 
       const data = await res.json();
       if (!data.success) {
-        alert(data.message || 'Failed to create route');
+        alert(data.message || (editingRoute ? 'Failed to update route' : 'Failed to create route'));
         return;
       }
 
       setShowRouteModal(false);
+      setEditingRoute(null);
       await fetchRoutes();
     } catch (error) {
       console.error('Error saving route:', error);
       alert('Error saving route');
+    }
+  };
+
+  const openEditRouteModal = async (route) => {
+    await ensureCompaniesLoaded();
+    await ensureStopsLoaded();
+    setEditingRoute(route);
+    setRouteForm({
+      company_id: route.company_id || '',
+      route_name: route.name || route.route_name || '',
+      origin_stop_name: route.origin_name || route.origin_stop_name || '',
+      destination_stop_name: route.destination_name || route.destination_stop_name || '',
+      distance: route.distance_km || route.distance || '',
+      description: route.description || ''
+    });
+    setShowRouteModal(true);
+  };
+
+  const handleDeleteRoute = async (routeId) => {
+    if (!confirm('Delete this route? This action cannot be undone.')) return;
+    try {
+      const res = await fetch(`${API_URL}/routes/${routeId}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (!res.ok) throw new Error('Failed to delete route');
+      await fetchRoutes();
+      alert('Route deleted');
+    } catch (e) {
+      console.error('Delete route error', e);
+      alert('Error deleting route');
     }
   };
 
@@ -747,7 +782,7 @@ function AdminDashboard({ token, onNavigate }) {
         <div className="stat-card stat-card-buses">
           <div className="stat-card-inner">
             <div className="stat-icon">
-              <span className="icon-emoji">🚌</span>
+              <img src="https://images.unsplash.com/photo-1542367597-9f6a0b5ca1b0?auto=format&fit=crop&w=64&q=80" alt="buses" className="h-8 w-8 object-cover" />
             </div>
             <div className="stat-info">
               <h3>Total Buses</h3>
@@ -760,7 +795,7 @@ function AdminDashboard({ token, onNavigate }) {
         <div className="stat-card stat-card-drivers">
           <div className="stat-card-inner">
             <div className="stat-icon">
-              <span className="icon-emoji">👨‍🚗</span>
+              <img src="https://img.icons8.com/color/48/driver.png" alt="drivers" className="h-8 w-8" />
             </div>
             <div className="stat-info">
               <h3>Companies</h3>
@@ -773,7 +808,7 @@ function AdminDashboard({ token, onNavigate }) {
         <div className="stat-card stat-card-routes">
           <div className="stat-card-inner">
             <div className="stat-icon">
-              <span className="icon-emoji">🛣️</span>
+              <img src="https://img.icons8.com/color/48/route.png" alt="routes" className="h-8 w-8" />
             </div>
             <div className="stat-info">
               <h3>Routes</h3>
@@ -799,7 +834,7 @@ function AdminDashboard({ token, onNavigate }) {
         <div className="stat-card stat-card-bookings">
           <div className="stat-card-inner">
             <div className="stat-icon">
-              <span className="icon-emoji">🎫</span>
+              <img src="https://img.icons8.com/color/48/ticket.png" alt="ticket" className="h-8 w-8" />
             </div>
             <div className="stat-info">
               <h3>Bookings</h3>
@@ -1450,6 +1485,7 @@ function AdminDashboard({ token, onNavigate }) {
                 <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Stops</th>
                 <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Status</th>
                 <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Created Date</th>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Actions</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
@@ -1476,6 +1512,12 @@ function AdminDashboard({ token, onNavigate }) {
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{new Date(route.created_at).toLocaleDateString()}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                    <div className="flex items-center gap-2">
+                      <button onClick={() => openEditRouteModal(route)} className="px-3 py-1 bg-indigo-50 text-indigo-700 rounded">Edit</button>
+                      <button onClick={() => handleDeleteRoute(route.id)} className="px-3 py-1 bg-red-50 text-red-700 rounded">Delete</button>
+                    </div>
+                  </td>
                 </tr>
               ))}
             </tbody>

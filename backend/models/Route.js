@@ -92,8 +92,9 @@ class Route {
     return await query(sql);
   }
 
-  static async findAll() {
-    const sql = `
+  static async findAll(options = {}) {
+    const { company_id = null } = options;
+    let sql = `
       SELECT r.*,
              comp.company_name as company_name,
              s1.name as origin_stop_name,
@@ -103,9 +104,17 @@ class Route {
       LEFT JOIN companies comp ON r.company_id = comp.id
       LEFT JOIN stops s1 ON r.origin_stop_id = s1.id
       LEFT JOIN stops s2 ON r.destination_stop_id = s2.id
-      ORDER BY r.created_at DESC
     `;
-    return await query(sql);
+
+    const params = [];
+    if (company_id) {
+      sql += ` WHERE r.company_id = ?`;
+      params.push(company_id);
+    }
+
+    sql += ` ORDER BY r.created_at DESC`;
+
+    return await query(sql, params);
   }
 
   static async getStops(routeId) {
@@ -133,6 +142,15 @@ class Route {
   }
 
   static async delete(id) {
+    // Prevent deleting a route that has dependent trips to avoid FK constraint errors
+    const depSql = `SELECT COUNT(*) as cnt FROM trips WHERE route_id = ?`;
+    const dep = await queryOne(depSql, [id]);
+    if (dep && dep.cnt && parseInt(dep.cnt) > 0) {
+      const err = new Error('Cannot delete route: dependent trips exist. Delete trips first.');
+      err.statusCode = 400;
+      throw err;
+    }
+
     const sql = `DELETE FROM routes WHERE id = ?`;
     await query(sql, [id]);
     return true;
@@ -142,6 +160,10 @@ class Route {
     const sql = `UPDATE routes SET is_active = NOT is_active WHERE id = ?`;
     await query(sql, [id]);
     return await this.findById(id);
+  }
+
+  static async findByCompany(companyId) {
+    return await this.findAll({ company_id: companyId });
   }
 }
 

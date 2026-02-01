@@ -78,16 +78,18 @@ class PaymentService {
       status = 'pending',
       metadata = {}
     } = paymentData;
+    // Map to repository schema: payments table uses `transaction_ref`, `payment_type`, `amount`, `payment_method`, `phone_number`, `company_id`, `user_id`, `status`, `payment_data` (JSON), and optional `reference_id`.
+    const paymentDataJson = Object.assign({}, metadata, { payment_id, transaction_ref });
+    const referenceId = metadata && metadata.ticket_id ? metadata.ticket_id : (metadata.subscription_id || null);
 
     const sql = `
       INSERT INTO payments (
-        payment_id, transaction_ref, payment_type, amount, payment_method,
-        phone_number, company_id, user_id, status, metadata, created_at
+        transaction_ref, payment_type, amount, payment_method,
+        phone_number, company_id, user_id, status, payment_data, reference_id, created_at
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
     `;
 
     const result = await query(sql, [
-      payment_id,
       transaction_ref,
       payment_type,
       amount,
@@ -96,7 +98,8 @@ class PaymentService {
       company_id || null,
       user_id || null,
       status,
-      JSON.stringify(metadata)
+      JSON.stringify(paymentDataJson),
+      referenceId
     ]);
 
     return result.insertId;
@@ -105,42 +108,67 @@ class PaymentService {
   /**
    * Update payment status
    */
-  async updatePaymentStatus(paymentId, status, transactionRef = null, metadata = {}) {
-    const params = [status];
-    const sql = `
-      UPDATE payments
-      SET status = ?, updated_at = NOW()
-      ${transactionRef ? ', transaction_ref = ?' : ''}
-      ${Object.keys(metadata).length > 0 ? ', metadata = ?' : ''}
-      WHERE payment_id = ?
-    `;
+  async updatePaymentStatus(paymentIdOrTransactionRef, status, transactionRef = null, metadata = {}) {
+    // Prefer updating by transactionRef when provided; otherwise accept transaction_ref as identifier
+    const params = [];
+    let whereClause = '';
 
     if (transactionRef) {
+      whereClause = 'WHERE transaction_ref = ?';
       params.push(transactionRef);
+    } else if (String(paymentIdOrTransactionRef || '').startsWith('TXN-') || String(paymentIdOrTransactionRef || '').startsWith('txn-')) {
+      // treat first arg as transaction ref
+      whereClause = 'WHERE transaction_ref = ?';
+      params.push(paymentIdOrTransactionRef);
+    } else if (!isNaN(parseInt(paymentIdOrTransactionRef))) {
+      // treat as internal id
+      whereClause = 'WHERE id = ?';
+      params.push(parseInt(paymentIdOrTransactionRef));
+    } else {
+      // fallback: cannot determine target
+      throw new Error('Unable to determine payment record to update');
     }
 
-    if (Object.keys(metadata).length > 0) {
-      params.push(JSON.stringify(metadata));
+    const updates = ['status = ?'];
+    const updateParams = [status];
+
+    if (metadata && Object.keys(metadata).length > 0) {
+      updates.push('payment_data = ?');
+      updateParams.push(JSON.stringify(metadata));
     }
 
-    params.push(paymentId);
+    // Do not overwrite transaction_ref unless explicitly provided
+    if (transactionRef) {
+      updates.push('transaction_ref = ?');
+      updateParams.push(transactionRef);
+    }
 
-    await query(sql, params);
+    const sql = `UPDATE payments SET ${updates.join(', ')}, updated_at = NOW() ${whereClause}`;
+    await query(sql, [...updateParams, ...params]);
   }
 
   /**
    * Get payment by ID
    */
-  async getPayment(paymentId) {
-    const payments = await query('SELECT * FROM payments WHERE payment_id = ?', [paymentId]);
-    return payments[0] || null;
+  async getPayment(paymentIdOrTransactionRef) {
+    if (!paymentIdOrTransactionRef) return null;
+    // Try by transaction_ref first
+    const byTx = await query('SELECT * FROM payments WHERE transaction_ref = ? LIMIT 1', [paymentIdOrTransactionRef]);
+    if (byTx && byTx.length > 0) return byTx[0];
+    // Try by numeric id
+    if (!isNaN(parseInt(paymentIdOrTransactionRef))) {
+      const byId = await query('SELECT * FROM payments WHERE id = ? LIMIT 1', [parseInt(paymentIdOrTransactionRef)]);
+      return byId[0] || null;
+    }
+    // Otherwise null
+    return null;
   }
 
   /**
    * Get payment by transaction reference
    */
   async getPaymentByTransactionRef(transactionRef) {
-    const payments = await query('SELECT * FROM payments WHERE transaction_ref = ?', [transactionRef]);
+    const payments = await query('SELECT * FROM payments WHERE transaction_ref = ? LIMIT 1', [transactionRef]);
     return payments[0] || null;
   }
 
@@ -171,8 +199,8 @@ class PaymentService {
       // Simulate API call
       console.log('MTN Payment Request:', mtnPayload);
 
-      // Record payment
-      await this.recordPayment({
+      // Record payment and capture DB id
+      const insertedId = await this.recordPayment({
         payment_id: paymentId,
         transaction_ref: transactionRef,
         payment_type: paymentData.payment_type,
@@ -199,6 +227,7 @@ class PaymentService {
         success: true,
         paymentId: paymentId,
         transactionRef: transactionRef,
+        dbId: insertedId,
         message: 'Payment initiated. Please check your phone for payment prompt.',
         status: 'pending'
       };
@@ -228,8 +257,8 @@ class PaymentService {
 
       console.log('Airtel Payment Request:', airtelPayload);
 
-      // Record payment
-      await this.recordPayment({
+      // Record payment and capture DB id
+      const insertedId = await this.recordPayment({
         payment_id: paymentId,
         transaction_ref: transactionRef,
         payment_type: paymentData.payment_type,
@@ -255,6 +284,7 @@ class PaymentService {
         success: true,
         paymentId: paymentId,
         transactionRef: transactionRef,
+        dbId: insertedId,
         message: 'Payment initiated. Please check your phone for payment prompt.',
         status: 'pending'
       };
@@ -289,8 +319,8 @@ class PaymentService {
 
       console.log('MoMoPay Payment Request:', momopayPayload);
 
-      // Record payment
-      await this.recordPayment({
+      // Record payment and capture DB id
+      const insertedId = await this.recordPayment({
         payment_id: paymentId,
         transaction_ref: transactionRef,
         payment_type: paymentData.payment_type,
@@ -317,6 +347,7 @@ class PaymentService {
         success: true,
         paymentId: paymentId,
         transactionRef: transactionRef,
+        dbId: insertedId,
         paymentCode: paymentCode,
         message: `Payment code generated: ${paymentCode}. Use this code to complete payment.`,
         status: 'pending'
@@ -351,8 +382,8 @@ class PaymentService {
 
       console.log('Bank Transfer Details:', bankTransferData);
 
-      // Record payment
-      await this.recordPayment({
+      // Record payment and capture DB id
+      const insertedId = await this.recordPayment({
         payment_id: paymentId,
         transaction_ref: transactionRef,
         payment_type: paymentData.payment_type,
@@ -374,6 +405,7 @@ class PaymentService {
         success: true,
         paymentId: paymentId,
         transactionRef: transactionRef,
+        dbId: insertedId,
         bankReference: bankReference,
         bankDetails: bankTransferData,
         message: 'Bank transfer reference generated. Please transfer funds to the provided account.',
@@ -397,25 +429,32 @@ class PaymentService {
         simulation: true
       });
 
-      // Get payment details
-      const payment = await this.getPayment(paymentId);
+      // Get payment details by transaction reference
+      const payment = await this.getPaymentByTransactionRef(transactionRef);
       if (!payment) return;
 
       // Handle different payment types
       if (payment.payment_type === 'subscription') {
         // Activate company subscription
         const subscriptionService = require('./subscriptionService');
+        const meta = typeof payment.payment_data === 'string' ? (JSON.parse(payment.payment_data || '{}') || {}) : (payment.payment_data || {});
         await subscriptionService.subscribeToPlan(
           payment.company_id,
-          payment.metadata.plan_id,
+          meta.plan_id,
           paymentId
         );
       } else if (payment.payment_type === 'ticket') {
         // Confirm ticket payment
-        await query(
-          'UPDATE tickets SET payment_status = "completed", ticket_status = "confirmed" WHERE id = ?',
-          [payment.metadata.ticket_id]
-        );
+        const meta2 = typeof payment.payment_data === 'string' ? (JSON.parse(payment.payment_data || '{}') || {}) : (payment.payment_data || {});
+        const ticketId = meta2 && (meta2.ticket_id || meta2.ticketId || meta2.reference_id || meta2.referenceId) ? (meta2.ticket_id || meta2.ticketId || meta2.reference_id || meta2.referenceId) : null;
+        if (!ticketId) {
+          console.warn('simulatePaymentSuccess: no ticket id found in payment metadata, skipping ticket update', { paymentId, transactionRef, metadata: meta2 });
+        } else {
+          await query(
+            'UPDATE tickets SET payment_status = "completed", ticket_status = "confirmed" WHERE id = ?',
+            [ticketId]
+          );
+        }
       }
 
       console.log(`Payment ${paymentId} marked as completed`);
@@ -436,7 +475,7 @@ class PaymentService {
     }
 
     return {
-      paymentId: payment.payment_id,
+      paymentId: payment.transaction_ref || payment.id,
       transactionRef: payment.transaction_ref,
       status: payment.status,
       amount: payment.amount,
@@ -445,9 +484,9 @@ class PaymentService {
       updatedAt: payment.updated_at,
       userId: payment.user_id,
       companyId: payment.company_id,
-      metadata: typeof payment.metadata === 'string'
-        ? (JSON.parse(payment.metadata || '{}') || {})
-        : (payment.metadata || {})
+      metadata: typeof payment.payment_data === 'string'
+        ? (JSON.parse(payment.payment_data || '{}') || {})
+        : (payment.payment_data || {})
     };
   }
 
@@ -540,7 +579,7 @@ class PaymentService {
     const payments = await query(sql, params);
 
     return payments.map(payment => ({
-      paymentId: payment.payment_id,
+      paymentId: payment.transaction_ref || payment.id,
       transactionRef: payment.transaction_ref,
       paymentType: payment.payment_type,
       amount: payment.amount,
@@ -548,7 +587,7 @@ class PaymentService {
       status: payment.status,
       createdAt: payment.created_at,
       updatedAt: payment.updated_at,
-      metadata: payment.metadata
+      metadata: typeof payment.payment_data === 'string' ? (JSON.parse(payment.payment_data || '{}') || {}) : (payment.payment_data || {})
     }));
   }
 

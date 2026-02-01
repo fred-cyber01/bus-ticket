@@ -2,6 +2,7 @@
 const { query } = require('../config/database');
 const paymentService = require('../services/paymentService');
 const subscriptionService = require('../services/subscriptionService');
+const smsService = require('../services/smsService');
 const moment = require('moment-timezone');
 
 /**
@@ -27,8 +28,9 @@ exports.mtnWebhook = async (req, res) => {
     // Find payment by reference
     const paymentRows = await query(`
       SELECT * FROM payments 
-      WHERE transaction_ref = ? OR payment_id = ?
-    `, [webhookData.externalId || webhookData.referenceId, webhookData.referenceId || webhookData.externalId]);
+      WHERE transaction_ref = ?
+      LIMIT 1
+    `, [webhookData.externalId || webhookData.referenceId]);
 
     const payment = paymentRows[0];
 
@@ -39,9 +41,9 @@ exports.mtnWebhook = async (req, res) => {
     // Update payment status based on MTN response
     const status = webhookData.status === 'SUCCESSFUL' ? 'completed' : 'failed';
     await paymentService.updatePaymentStatus(
-      payment.payment_id,
-      status,
       null,
+      status,
+      payment.transaction_ref,
       webhookData
     );
 
@@ -80,8 +82,9 @@ exports.airtelWebhook = async (req, res) => {
     // Find payment
     const paymentRows = await query(`
       SELECT * FROM payments 
-      WHERE transaction_ref = ? OR payment_id = ?
-    `, [webhookData.transaction?.id || webhookData.reference, webhookData.reference || webhookData.transaction?.id]);
+      WHERE transaction_ref = ?
+      LIMIT 1
+    `, [webhookData.transaction?.id || webhookData.reference]);
 
     const payment = paymentRows[0];
 
@@ -92,9 +95,9 @@ exports.airtelWebhook = async (req, res) => {
     // Update payment status
     const status = webhookData.status === 'TS' ? 'completed' : 'failed';
     await paymentService.updatePaymentStatus(
-      payment.payment_id,
-      status,
       null,
+      status,
+      payment.transaction_ref,
       webhookData
     );
 
@@ -133,8 +136,9 @@ exports.momoPayWebhook = async (req, res) => {
     // Find payment
     const paymentRows = await query(`
       SELECT * FROM payments 
-      WHERE transaction_ref = ? OR payment_id = ?
-    `, [webhookData.merchantReference || webhookData.transactionId, webhookData.transactionId || webhookData.merchantReference]);
+      WHERE transaction_ref = ?
+      LIMIT 1
+    `, [webhookData.merchantReference || webhookData.transactionId]);
 
     const payment = paymentRows[0];
 
@@ -145,9 +149,9 @@ exports.momoPayWebhook = async (req, res) => {
     // Update payment status
     const status = webhookData.status === 'SUCCESS' ? 'completed' : 'failed';
     await paymentService.updatePaymentStatus(
-      payment.payment_id,
-      status,
       null,
+      status,
+      payment.transaction_ref,
       webhookData
     );
 
@@ -232,7 +236,7 @@ exports.flutterwaveWebhook = async (req, res) => {
 
     if (verifiedStatus === 'successful' && amountMatches && currencyMatches && txRefMatches) {
       await paymentService.updatePaymentStatus(
-        payment.payment_id,
+        null,
         'completed',
         txRef,
         {
@@ -244,14 +248,14 @@ exports.flutterwaveWebhook = async (req, res) => {
       );
 
       // Reload payment (so metadata is fresh) then activate ticket/subscription
-      const updated = (await query('SELECT * FROM payments WHERE payment_id = ? LIMIT 1', [payment.payment_id]))[0];
+      const updated = (await query('SELECT * FROM payments WHERE transaction_ref = ? LIMIT 1', [payment.transaction_ref]))[0];
       await processSuccessfulPayment(updated || payment);
 
       return res.status(200).json({ message: 'Webhook processed' });
     }
 
     await paymentService.updatePaymentStatus(
-      payment.payment_id,
+      null,
       'failed',
       txRef,
       {
@@ -285,8 +289,8 @@ exports.confirmBankTransfer = async (req, res) => {
     const { transactionId, bankReferenceNumber } = req.body;
 
     const paymentRows = await query(
-      'SELECT * FROM payments WHERE transaction_ref = ? OR payment_id = ?',
-      [transactionId, transactionId]
+      'SELECT * FROM payments WHERE transaction_ref = ? LIMIT 1',
+      [transactionId]
     );
     const payment = paymentRows[0];
 
@@ -304,11 +308,11 @@ exports.confirmBankTransfer = async (req, res) => {
       });
     }
 
-    // Update payment
+    // Update payment by transaction_ref
     await paymentService.updatePaymentStatus(
-      payment.payment_id,
-      'completed',
       null,
+      'completed',
+      payment.transaction_ref,
       { bankReferenceNumber }
     );
 
@@ -332,11 +336,11 @@ exports.confirmBankTransfer = async (req, res) => {
  * Process successful payment (activate ticket or subscription)
  */
 async function processSuccessfulPayment(payment) {
-  const metadata = typeof payment.metadata === 'string'
-    ? (JSON.parse(payment.metadata || '{}') || {})
-    : (payment.metadata || {});
+  const metadata = typeof payment.payment_data === 'string'
+    ? (JSON.parse(payment.payment_data || '{}') || {})
+    : (payment.payment_data || {});
 
-  const ticketId = payment.ticket_id || metadata.ticket_id;
+  const ticketId = payment.reference_id || metadata.ticket_id || metadata.reference_id;
 
   if (payment.payment_type === 'ticket' && ticketId) {
     // Activate ticket(s)
@@ -346,7 +350,7 @@ async function processSuccessfulPayment(payment) {
           payment_status = 'completed',
           payment_id = ?
       WHERE id = ?
-    `, [payment.payment_id, ticketId]);
+    `, [payment.transaction_ref, ticketId]);
 
     // Track payment method on ticket for receipt/logging
     await query(
@@ -364,7 +368,18 @@ async function processSuccessfulPayment(payment) {
       AND trip_id = (SELECT trip_id FROM tickets WHERE id = ?)
       AND booking_date = (SELECT booking_date FROM tickets WHERE id = ?)
       AND payment_id IS NULL
-    `, [payment.payment_id, payment.user_id, ticketId, ticketId]);
+    `, [payment.transaction_ref, payment.user_id, ticketId, ticketId]);
+
+    // Notify driver with passenger list for the trip if driver phone is available
+    try {
+      const tripRow = await query('SELECT trip_id FROM tickets WHERE id = ? LIMIT 1', [ticketId]);
+      const tripIdReal = tripRow && tripRow[0] && tripRow[0].trip_id;
+      if (tripIdReal) {
+        await smsService.notifyDriverForTrip(tripIdReal);
+      }
+    } catch (e) {
+      console.error('Driver notification failed:', e?.message || e);
+    }
 
   } else if (payment.payment_type === 'subscription' && payment.company_id) {
     // Activate subscription

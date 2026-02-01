@@ -7,6 +7,7 @@ const { asyncHandler } = require('../middleware/errorHandler');
 const moment = require('moment-timezone');
 const QRCode = require('qrcode');
 const crypto = require('crypto');
+const smsService = require('../services/smsService');
 
 /**
  * @route   POST /api/bookings
@@ -40,6 +41,20 @@ exports.createBooking = asyncHandler(async (req, res) => {
       success: false,
       message: 'Trip not found'
     });
+  }
+
+  // Basic validation: passenger details must be provided and include required fields
+  if (!Array.isArray(passengerDetails) || passengerDetails.length === 0) {
+    return res.status(400).json({ success: false, message: 'passengerDetails are required' });
+  }
+
+  for (const p of passengerDetails) {
+    if (!p || !p.name || p.name.trim() === '') {
+      return res.status(400).json({ success: false, message: 'Each passenger must have a name' });
+    }
+    if (p.seatNumber === undefined || p.seatNumber === null) {
+      return res.status(400).json({ success: false, message: 'Each passenger must have a seatNumber' });
+    }
   }
 
   // Validate all seat numbers
@@ -85,9 +100,29 @@ exports.createBooking = asyncHandler(async (req, res) => {
   const userDetails = userResult[0] || {};
 
   for (const passenger of passengerDetails) {
-    const ticketPrice = trip.price || 5000;
+    // Determine ticket pricing
+    const ticketPrice = Number(trip.price || 5000);
     const serviceFee = Math.round(ticketPrice * 0.05); // 5% service fee
-    const totalAmount = ticketPrice + serviceFee;
+    const totalAmount = Number(ticketPrice + serviceFee);
+
+    // Normalize travel date/time for ticket storage and display
+    // trip.trip_date may be null; trip.departure_time may be 'HH:mm:ss' or an ISO datetime
+    let travelDate = trip.trip_date || null;
+    let depTimeRaw = trip.departure_time || trip.departureTime || null;
+    let departureTimeDisplay = depTimeRaw;
+    // If departure_time contains 'T', split into date and time
+    if (depTimeRaw && String(depTimeRaw).includes('T')) {
+      const parts = String(depTimeRaw).split('T');
+      if (!travelDate) travelDate = parts[0];
+      departureTimeDisplay = parts[1];
+    }
+    // As fallback, if trip.trip_date missing but trip has full datetime in other fields, try to extract
+    if (!travelDate && trip.departure_datetime) {
+      const dt = String(trip.departure_datetime);
+      if (dt.includes('T')) travelDate = dt.split('T')[0];
+    }
+    // Final combined departure time for DB: prefer full 'YYYY-MM-DD HH:mm:ss' when possible
+    const departureForDb = travelDate && departureTimeDisplay ? `${travelDate} ${departureTimeDisplay}` : (trip.departure_time || null);
 
     const ticketId = await Ticket.createBooking({
       user_id: userId,
@@ -97,10 +132,10 @@ exports.createBooking = asyncHandler(async (req, res) => {
       passenger_age: passenger.age,
       passenger_phone: passenger.phone || userDetails.phone || 'N/A',
       passenger_email: passenger.email || userDetails.email,
-      boarding_stop_id: trip.origin_id,
-      dropoff_stop_id: trip.destination_id,
+      boarding_stop_id: trip.origin_id || trip.origin_id || null,
+      dropoff_stop_id: trip.destination_id || trip.destination_id || null,
       price: totalAmount,
-      departure_time: trip.departure_time,
+      departure_time: departureForDb,
       booking_date: moment().format('YYYY-MM-DD')
     });
 
@@ -117,8 +152,8 @@ exports.createBooking = asyncHandler(async (req, res) => {
       passenger: passenger.name,
       from: trip.origin,
       to: trip.destination,
-      travelDate: trip.trip_date,
-      departureTime: trip.departure_time,
+      travelDate: travelDate || 'TBD',
+      departureTime: departureTimeDisplay || 'TBD',
       seat: passenger.seatNumber,
       busPlate: trip.plate_number,
       company: trip.company_name,
@@ -150,6 +185,9 @@ exports.createBooking = asyncHandler(async (req, res) => {
     const passengerPhone = passenger.phone || userDetails.phone || 'N/A';
     const passengerEmail = passenger.email || userDetails.email || 'N/A';
     const companyPhone = trip.company_phone || '+250788000000';
+    const ticketPriceFmt = `${Number(ticketPrice).toFixed(0)} RWF`;
+    const serviceFeeFmt = `${Number(serviceFee).toFixed(0)} RWF`;
+    const totalAmountFmt = `${Number(totalAmount).toFixed(0)} RWF`;
     
     const receipt = `
 ╔════════════════════════════════════════════════╗
@@ -163,10 +201,10 @@ Time: ${issueDateTime.format('HH:mm:ss')}
 
 📍 Trip Details
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-From: ${trip.origin}
-To: ${trip.destination}
-Travel Date: ${trip.trip_date}
-Departure Time: ${trip.departure_time}
+From: ${trip.origin || trip.origin_stop_name || 'N/A'}
+To: ${trip.destination || trip.destination_stop_name || 'N/A'}
+Travel Date: ${travelDate || 'TBD'}
+Departure Time: ${departureTimeDisplay || 'TBD'}
 Bus Name / Company: ${trip.company_name}
 Bus Plate Number: ${trip.plate_number}
 Seat Number: ${passenger.seatNumber}
@@ -180,9 +218,9 @@ Email: ${passengerEmail}
 💳 Payment Details
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 Payment Method: Mobile Money
-Ticket Price: ${ticketPrice} RWF
-Service Fee: ${serviceFee} RWF
-Total Paid: ${totalAmount} RWF
+Ticket Price: ${ticketPriceFmt}
+Service Fee: ${serviceFeeFmt}
+Total Paid: ${totalAmountFmt}
 Status: PAID ✔
 
 🔐 Security
@@ -213,6 +251,9 @@ Customer Support: ${companyPhone}
       ticketPrice: ticketPrice,
       serviceFee: serviceFee,
       totalAmount: totalAmount,
+      ticketPriceFormatted: ticketPriceFmt,
+      serviceFeeFormatted: serviceFeeFmt,
+      totalAmountFormatted: totalAmountFmt,
       qrCode: qrCodeDataURL,
       receipt: receipt,
       qrData: qrData
@@ -228,12 +269,19 @@ Customer Support: ${companyPhone}
     });
   }
 
+  // Notify driver immediately about booked passengers for this trip (include 'booked' status)
+  try {
+    await smsService.notifyDriverForTrip(numericTripId);
+  } catch (e) {
+    console.error('Driver notification failed after booking:', e?.message || e);
+  }
+
   res.status(201).json({
     success: true,
     message: 'Booking created successfully - Please complete payment to confirm tickets',
     data: {
       bookingId: `booking_${bookingIds[0]}`,
-      tripId: tripId,
+      tripId: numericTripId,
       userId: `usr_${userId}`,
       seatNumbers: seatNumbers,
       totalPrice: totalPrice,

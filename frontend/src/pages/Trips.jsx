@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import '../styles/add-trip.css';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
+import SeatSelection from './SeatSelection';
 
 const Trips = () => {
   const { isAdmin } = useAuth();
@@ -62,7 +63,10 @@ const Trips = () => {
     try {
       setLoading(true);
       const response = await api.getTrips(filterParams);
-      setTrips(response.data || []);
+      // Show only trips with available seats > 0
+      const all = response.data || [];
+      const availableOnly = all.filter(t => (t.availableSeats || 0) > 0);
+      setTrips(availableOnly);
       setError('');
     } catch (err) {
       setError(err.message);
@@ -160,64 +164,81 @@ const Trips = () => {
     }
   };
 
-  const handleBookTrip = async (trip) => {
+  // Seat selection modal state
+  const [showSeatModal, setShowSeatModal] = useState(false);
+  const [selectedTripForBooking, setSelectedTripForBooking] = useState(null);
+  const [selectedSeats, setSelectedSeats] = useState([]);
+  const [passengerForm, setPassengerForm] = useState([]);
+
+  const openSeatSelector = (trip) => {
     if (!trip.tripId) {
       alert('Invalid trip data');
       return;
     }
-
-    if (trip.availableSeats <= 0) {
+    if ((trip.availableSeats || 0) <= 0) {
       alert('No seats available for this trip');
       return;
     }
+    setSelectedTripForBooking(trip);
+    setSelectedSeats([]);
+    setPassengerForm([]);
+    setShowSeatModal(true);
+  };
 
-    // Collect passenger details
-    const passengerName = prompt('Enter passenger name:');
-    if (!passengerName) return;
-
-    const passengerAge = prompt('Enter passenger age:');
-    if (!passengerAge || isNaN(passengerAge) || parseInt(passengerAge) < 1) {
-      alert('Please enter a valid age');
-      return;
+  const toggleSeat = (seat) => {
+    if (!selectedTripForBooking) return;
+    const seatStr = String(seat);
+    if (selectedSeats.includes(seatStr)) {
+      setSelectedSeats(selectedSeats.filter(s => s !== seatStr));
+      setPassengerForm(passengerForm.slice(0, selectedSeats.length - 1));
+    } else {
+      setSelectedSeats([...selectedSeats, seatStr]);
+      setPassengerForm([...passengerForm, { name: '', age: '', phone: '', email: '', seatNumber: seatStr }]);
     }
+  };
 
-    const passengerPhone = prompt('Enter phone number (optional):') || '';
-    const passengerEmail = prompt('Enter email (optional):') || '';
+  const handlePassengerChange = (index, field, value) => {
+    const copy = [...passengerForm];
+    copy[index] = { ...(copy[index] || {}), [field]: value };
+    setPassengerForm(copy);
+  };
 
-    // For simplicity, auto-select first available seat returned by the API.
-    // In a real app, you'd show a seat selection UI.
-    const seatNumber = Array.isArray(trip.availableSeatNumbers) && trip.availableSeatNumbers.length > 0
-      ? trip.availableSeatNumbers[0]
-      : (trip.totalSeats - trip.availableSeats + 1);
+  const confirmBooking = async () => {
+    if (!selectedTripForBooking) return;
+    if (selectedSeats.length === 0) return alert('Select at least one seat');
+    // validate passenger details
+    for (let i = 0; i < passengerForm.length; i++) {
+      const p = passengerForm[i];
+      if (!p || !p.name || !p.age || isNaN(p.age) || parseInt(p.age) < 1) {
+        return alert('Please provide valid passenger name and age for all seats');
+      }
+    }
 
     try {
       const bookingData = {
-        tripId: trip.tripId.toString(),
-        seatNumbers: [seatNumber.toString()],
-        passengerDetails: [{
-          name: passengerName,
-          age: parseInt(passengerAge),
-          phone: passengerPhone,
-          email: passengerEmail,
-          seatNumber: seatNumber
-        }]
+        tripId: selectedTripForBooking.tripId.toString(),
+        seatNumbers: selectedSeats,
+        passengerDetails: passengerForm.map(p => ({
+          name: p.name,
+          age: parseInt(p.age),
+          phone: p.phone || '',
+          email: p.email || '',
+          seatNumber: p.seatNumber
+        }))
       };
-      
+
       await api.createBooking(bookingData);
-      
-      alert(`Booking created successfully! 
-      
-Seat ${seatNumber} reserved for ${passengerName}
-
-⚠️ IMPORTANT: Your ticket is PENDING until payment is completed.
-
-Please complete payment to confirm your ticket.
-After payment confirmation, you can download your ticket as PDF.`);
-      
-      fetchTrips(); // Refresh trips to update available seats
+      alert('Booking created successfully! Please complete payment to confirm tickets.');
+      setShowSeatModal(false);
+      fetchTrips();
     } catch (err) {
-      alert('Error creating booking: ' + err.message);
+      alert('Error creating booking: ' + (err?.message || err));
     }
+  };
+
+  const handleBookingComplete = () => {
+    setSelectedTripForBooking(null);
+    fetchTrips(); // Refresh trips to update available seats
   };
 
   const formatDate = (dateString) => {
@@ -315,7 +336,7 @@ After payment confirmation, you can download your ticket as PDF.`);
                 )}
 
                 <div className="mt-4 flex gap-3">
-                  <button onClick={() => handleBookTrip(trip)} disabled={trip.availableSeats <= 0} className={`flex-1 rounded-lg px-4 py-2 text-white ${trip.availableSeats > 0 ? 'bg-gradient-to-r from-blue-600 to-purple-600' : 'bg-gray-300 cursor-not-allowed'}`}>{trip.availableSeats > 0 ? 'Book Now' : 'Sold Out'}</button>
+                  <button onClick={() => openSeatSelector(trip)} disabled={trip.availableSeats <= 0} className={`flex-1 rounded-lg px-4 py-2 text-white ${trip.availableSeats > 0 ? 'bg-gradient-to-r from-blue-600 to-purple-600' : 'bg-gray-300 cursor-not-allowed'}`}>{trip.availableSeats > 0 ? 'Book Now' : 'Sold Out'}</button>
                   {isAdmin() && (<button onClick={() => handleCancelTrip(trip.tripId)} className="rounded-lg px-4 py-2 border border-red-300 text-red-600">Cancel</button>)}
                 </div>
               </div>
@@ -334,6 +355,15 @@ After payment confirmation, you can download your ticket as PDF.`);
             </div>
           )}
         </>
+      )}
+
+      {/* Seat Selection Component */}
+      {selectedTripForBooking && (
+        <SeatSelection
+          trip={selectedTripForBooking}
+          onBack={() => setSelectedTripForBooking(null)}
+          onBookingComplete={handleBookingComplete}
+        />
       )}
     </div>
   );

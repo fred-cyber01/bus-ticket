@@ -5,7 +5,7 @@ const moment = require('moment-timezone');
 
 class CompanyManager {
   static async create(managerData) {
-    const { company_id, user_name, email, phone, password, role = 'manager' } = managerData;
+    const { company_id, name, email, phone, password, role = 'manager' } = managerData;
 
     // Hash password
     const salt = await bcrypt.genSalt(10);
@@ -13,13 +13,13 @@ class CompanyManager {
 
     const sql = `
       INSERT INTO company_managers (
-        company_id, user_name, email, phone, password_hash, role, created_at
+        company_id, name, email, phone, password, role, created_at
       ) VALUES (?, ?, ?, ?, ?, ?, ?)
     `;
 
-    const result = query(sql, [
+    const result = await query(sql, [
       company_id,
-      user_name,
+      name,
       email,
       phone || null,
       password_hash,
@@ -27,15 +27,15 @@ class CompanyManager {
       moment().tz('Africa/Kigali').format('YYYY-MM-DD HH:mm:ss')
     ]);
 
-    return result.lastInsertRowid;
+    return result.insertId;
   }
 
   static findByEmail(email) {
     const sql = `
-      SELECT cm.*, c.name as company_name, c.subscription_status, c.bus_limit
+      SELECT cm.*, c.company_name as company_name, c.subscription_status, c.bus_limit
       FROM company_managers cm
-      JOIN companies c ON cm.company_id = c.id
-      WHERE cm.email = ? AND cm.is_active = 1
+      LEFT JOIN companies c ON cm.company_id = c.id
+      WHERE cm.email = ? AND cm.status = 'active'
     `;
 
     return queryOne(sql, [email]);
@@ -43,9 +43,9 @@ class CompanyManager {
 
   static findById(id) {
     const sql = `
-      SELECT cm.*, c.name as company_name, c.subscription_status, c.bus_limit
+      SELECT cm.*, c.company_name as company_name, c.subscription_status, c.bus_limit
       FROM company_managers cm
-      JOIN companies c ON cm.company_id = c.id
+      LEFT JOIN companies c ON cm.company_id = c.id
       WHERE cm.id = ?
     `;
 
@@ -53,7 +53,7 @@ class CompanyManager {
   }
 
   static async validatePassword(manager, password) {
-    return await bcrypt.compare(password, manager.password_hash);
+    return await bcrypt.compare(password, manager.password);
   }
 
   static findByCompany(companyId) {
@@ -68,23 +68,23 @@ class CompanyManager {
   }
 
   static update(id, updateData) {
-    const { user_name, email, phone, is_active } = updateData;
+    const { name, email, phone, status } = updateData;
 
     const sql = `
       UPDATE company_managers 
-      SET user_name = ?,
+      SET name = ?,
           email = ?,
           phone = ?,
-          is_active = ?,
+          status = ?,
           updated_at = ?
       WHERE id = ?
     `;
 
     query(sql, [
-      user_name,
+      name,
       email,
       phone || null,
-      is_active ? 1 : 0,
+      status || 'active',
       moment().tz('Africa/Kigali').format('YYYY-MM-DD HH:mm:ss'),
       id
     ]);
@@ -96,8 +96,8 @@ class CompanyManager {
     const salt = await bcrypt.genSalt(10);
     const password_hash = await bcrypt.hash(newPassword, salt);
 
-    query(
-      'UPDATE company_managers SET password_hash = ?, updated_at = ? WHERE id = ?',
+    await query(
+      'UPDATE company_managers SET password = ?, updated_at = ? WHERE id = ?',
       [password_hash, moment().tz('Africa/Kigali').format('YYYY-MM-DD HH:mm:ss'), id]
     );
 

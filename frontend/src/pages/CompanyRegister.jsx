@@ -337,11 +337,16 @@ const CompanyRegister = ({ onNavigate, onSuccess }) => {
                 </div>
 
                 <form className="mt-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {[['mtn_momo','MTN Mobile Money','📱'], ['airtel_money','Airtel Money','📱'], ['momopay','MoMoPay','💳'], ['bank_transfer','Bank Transfer','🏦']].map(([key,label,icon]) => (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {[
+                      { key: 'mtn_momo', label: 'MTN Mobile Money', img: 'https://img.icons8.com/color/48/smartphone.png' },
+                      { key: 'airtel_money', label: 'Airtel Money', img: 'https://img.icons8.com/color/48/smartphone.png' },
+                      { key: 'momopay', label: 'MoMoPay', img: 'https://img.icons8.com/color/48/bank-card-back-side.png' },
+                      { key: 'bank_transfer', label: 'Bank Transfer', img: 'https://img.icons8.com/color/48/bank-building.png' }
+                    ].map(({key,label,img}) => (
                       <button key={key} type="button" onClick={() => setFormData({ ...formData, payment_method: key })} className={`text-left p-3 rounded-lg border ${formData.payment_method === key ? 'border-blue-600 bg-blue-50' : 'border-gray-100 bg-white'}`}>
                         <div className="flex items-center gap-3">
-                          <div className="text-2xl">{icon}</div>
+                          <img src={img} alt={label} className="h-6 w-6" />
                           <div>
                             <div className="text-sm font-medium">{label}</div>
                           </div>
