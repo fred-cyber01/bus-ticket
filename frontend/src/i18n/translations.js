@@ -1,0 +1,46 @@
+const translations = {
+  en: {
+    sign_in: 'Sign In',
+    register_company: 'Register Company',
+    logout: 'Logout',
+    book_your_trip: 'Book Your Trip',
+    contact_us: 'Contact Us',
+    why_choose_us: 'Why Choose Us?',
+    choose_desc: 'Fast, reliable bus bookings with transparent pricing and great customer support.',
+    ready_cta: 'Ready to Start Your Journey?',
+    get_started: 'Get Started',
+    browse_trips: 'Browse Trips',
+    register_bus_company: 'Register Your Bus Company',
+    online_booking: 'online booking',
+  },
+  fr: {
+    sign_in: "Se connecter",
+    register_company: "Inscrire une compagnie",
+    logout: "Se déconnecter",
+    book_your_trip: "Réservez votre voyage",
+    contact_us: "Contactez-nous",
+    why_choose_us: "Pourquoi nous choisir ?",
+    choose_desc: "Réservations de bus rapides et fiables avec des prix transparents et un excellent support.",
+    ready_cta: "Prêt à commencer votre voyage ?",
+    get_started: "Commencer",
+    browse_trips: "Rechercher des trajets",
+    register_bus_company: "Enregistrez votre compagnie de bus",
+    online_booking: 'réservation en ligne',
+  },
+  rw: {
+    sign_in: "Injira",
+    register_company: "Iyandikishe Isosiyete",
+    logout: "Sohoka",
+    book_your_trip: "Tegura urugendo rwawe",
+    contact_us: "Twandikire",
+    why_choose_us: "Kuki uhitamo twe?",
+    choose_desc: "Guhitamo intebe vuba kandi byizewe, ubwishyu butekanye, n'inkunga y'abakiriya.",
+    ready_cta: "Witeguye gutangira urugendo rwawe?",
+    get_started: "Tangira",
+    browse_trips: "Sura urugendo",
+    register_bus_company: "Iyandikishe Ikigo cy'Imodoka",
+    online_booking: 'kuri internet kwandikisha',
+  }
+};
+
+export default translations;

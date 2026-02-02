@@ -30,6 +30,16 @@ const forgotPasswordValidation = [
   body('email').isEmail().normalizeEmail().withMessage('Invalid email address')
 ];
 
+const requestOtpValidation = [
+  body('phone').notEmpty().withMessage('Phone is required')
+];
+
+const resetOtpValidation = [
+  body('phone').notEmpty().withMessage('Phone is required'),
+  body('otp').notEmpty().withMessage('OTP is required'),
+  body('newPassword').isLength({ min: 6 }).withMessage('New password must be at least 6 characters')
+];
+
 const resetPasswordValidation = [
   body('token').notEmpty().withMessage('Reset token is required'),
   body('newPassword').isLength({ min: 6 }).withMessage('New password must be at least 6 characters')
@@ -47,5 +57,9 @@ router.put('/change-password', authenticate, changePasswordValidation, validate,
 
 router.post('/forgot-password', authLimiter, forgotPasswordValidation, validate, authController.forgotPassword);
 router.post('/reset-password', authLimiter, resetPasswordValidation, validate, authController.resetPassword);
+
+// Phone OTP password reset
+router.post('/request-otp', authLimiter, requestOtpValidation, validate, authController.requestOtp);
+router.post('/reset-password-otp', authLimiter, resetOtpValidation, validate, authController.resetPasswordWithOtp);
 
 module.exports = router;

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
@@ -15,6 +16,24 @@ const Auth = ({ onNavigate }) => {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showForgot, setShowForgot] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState('');
+  const [forgotMsg, setForgotMsg] = useState('');
+  const [forgotLoading, setForgotLoading] = useState(false);
+  // Forgot password handler
+  const handleForgotPassword = async (e) => {
+    e.preventDefault();
+    setForgotLoading(true);
+    setForgotMsg('');
+    try {
+      const resp = await api.post('/auth/forgot-password', { email: forgotEmail });
+      setForgotMsg(resp.message || 'If your email is registered, you will receive a password reset link.');
+    } catch (err) {
+      setForgotMsg(err.message || 'Failed to send reset email.');
+    } finally {
+      setForgotLoading(false);
+    }
+  };
 
   const { signin, signup } = useAuth();
 
@@ -137,7 +156,45 @@ const Auth = ({ onNavigate }) => {
                   {showPassword ? '🙈' : '👁️'}
                 </button>
               </div>
+              {isSignIn && (
+                <div className="text-right mt-1">
+                  <button
+                    type="button"
+                    className="text-xs text-indigo-600 hover:underline focus:outline-none"
+                    onClick={() => { setShowForgot(true); setForgotEmail(formData.email); setForgotMsg(''); }}
+                  >
+                    Forgot password?
+                  </button>
+                </div>
+              )}
             </div>
+      {/* Forgot Password Modal */}
+      {showForgot && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-30">
+          <div className="bg-white rounded-xl shadow-lg p-6 w-full max-w-sm relative">
+            <button className="absolute top-2 right-2 text-gray-400 hover:text-gray-600" onClick={() => setShowForgot(false)}>&times;</button>
+            <h2 className="text-lg font-semibold mb-2">Forgot Password</h2>
+            <form onSubmit={handleForgotPassword} className="space-y-3">
+              <input
+                type="email"
+                className="block w-full rounded-lg border border-gray-200 px-4 py-2 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="Enter your email"
+                value={forgotEmail}
+                onChange={e => setForgotEmail(e.target.value)}
+                required
+              />
+              <button
+                type="submit"
+                className="w-full bg-indigo-600 text-white rounded-lg py-2 font-semibold hover:bg-indigo-700 transition"
+                disabled={forgotLoading}
+              >
+                {forgotLoading ? 'Sending...' : 'Send Reset Link'}
+              </button>
+            </form>
+            {forgotMsg && <div className="mt-2 text-sm text-gray-600">{forgotMsg}</div>}
+          </div>
+        </div>
+      )}
 
             {!isSignIn && (
               <div>

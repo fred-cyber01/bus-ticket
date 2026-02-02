@@ -7,24 +7,24 @@ import SeatSelection from './SeatSelection';
 const Icon = ({ children, className = '' }) => (
   <span aria-hidden className={`inline-block ${className}`}>{children}</span>
 );
-const Ticket = (p) => <Icon {...p}><img src="https://img.icons8.com/color/48/ticket.png" alt="ticket" className="h-5 w-5"/></Icon>;
-const CreditCard = (p) => <Icon {...p}><img src="https://img.icons8.com/color/48/bank-card-back-side.png" alt="card" className="h-5 w-5"/></Icon>;
-const ArrowRight = (p) => <Icon {...p}><img src="https://img.icons8.com/color/48/long-arrow-right.png" alt="arrow" className="h-5 w-5"/></Icon>;
-const MapPin = (p) => <Icon {...p}><img src="https://img.icons8.com/color/48/marker.png" alt="pin" className="h-5 w-5"/></Icon>;
-const Calendar = (p) => <Icon {...p}><img src="https://img.icons8.com/color/48/calendar--v1.png" alt="calendar" className="h-5 w-5"/></Icon>;
-const Bus = (p) => <Icon {...p}><img src="https://images.unsplash.com/photo-1542367597-9f6a0b5ca1b0?auto=format&fit=crop&w=64&q=80" alt="bus" className="h-5 w-5 object-cover"/></Icon>;
-const QrCode = (p) => <Icon {...p}><img src="https://img.icons8.com/color/48/qr-code--v1.png" alt="qr" className="h-5 w-5"/></Icon>;
-const Download = (p) => <Icon {...p}><img src="https://img.icons8.com/color/48/download--v1.png" alt="download" className="h-5 w-5"/></Icon>;
-const X = (p) => <Icon {...p}><img src="https://img.icons8.com/color/48/delete-sign.png" alt="close" className="h-5 w-5"/></Icon>;
-const Search = (p) => <Icon {...p}><img src="https://img.icons8.com/color/48/search--v1.png" alt="search" className="h-5 w-5"/></Icon>;
-const LogOut = (p) => <Icon {...p}><img src="https://img.icons8.com/color/48/exit.png" alt="logout" className="h-5 w-5"/></Icon>;
-const LayoutDashboard = (p) => <Icon {...p}><img src="https://img.icons8.com/color/48/dashboard.png" alt="layout" className="h-5 w-5"/></Icon>;
-const User = (p) => <Icon {...p}><img src="https://img.icons8.com/color/48/user--v1.png" alt="user" className="h-5 w-5"/></Icon>;
-const Settings = (p) => <Icon {...p}><img src="https://img.icons8.com/color/48/settings.png" alt="settings" className="h-5 w-5"/></Icon>;
-const HelpCircle = (p) => <Icon {...p}><img src="https://img.icons8.com/color/48/help.png" alt="help" className="h-5 w-5"/></Icon>;
-const Menu = (p) => <Icon {...p}><img src="https://img.icons8.com/color/48/menu--v1.png" alt="menu" className="h-5 w-5"/></Icon>;
-const Bell = (p) => <Icon {...p}><img src="https://img.icons8.com/color/48/appointment-reminders--v1.png" alt="bell" className="h-5 w-5"/></Icon>;
-const ChevronRight = (p) => <Icon {...p}><img src="https://img.icons8.com/color/48/chevron-right.png" alt="chevron" className="h-5 w-5"/></Icon>;
+const Ticket = (p) => <Icon {...p}><img src="/assets/icon-ticket.svg" alt="ticket" className="h-5 w-5"/></Icon>;
+const CreditCard = (p) => <Icon {...p}><img src="/assets/icon-card.svg" alt="card" className="h-5 w-5"/></Icon>;
+const ArrowRight = (p) => <Icon {...p}><img src="/assets/icon-generic.svg" alt="arrow" className="h-5 w-5"/></Icon>;
+const MapPin = (p) => <Icon {...p}><img src="/assets/icon-generic.svg" alt="pin" className="h-5 w-5"/></Icon>;
+const Calendar = (p) => <Icon {...p}><img src="/assets/icon-generic.svg" alt="calendar" className="h-5 w-5"/></Icon>;
+const Bus = (p) => <Icon {...p}><img src="/assets/rwanda-ict-logo.png" alt="bus" className="h-6 w-6 object-cover"/></Icon>;
+const QrCode = (p) => <Icon {...p}><img src="/assets/icon-generic.svg" alt="qr" className="h-5 w-5"/></Icon>;
+const Download = (p) => <Icon {...p}><img src="/assets/icon-generic.svg" alt="download" className="h-5 w-5"/></Icon>;
+const X = (p) => <Icon {...p}><img src="/assets/icon-generic.svg" alt="close" className="h-5 w-5"/></Icon>;
+const Search = (p) => <Icon {...p}><img src="/assets/icon-generic.svg" alt="search" className="h-5 w-5"/></Icon>;
+const LogOut = (p) => <Icon {...p}><img src="/assets/icon-generic.svg" alt="logout" className="h-5 w-5"/></Icon>;
+const LayoutDashboard = (p) => <Icon {...p}><img src="/assets/icon-generic.svg" alt="layout" className="h-5 w-5"/></Icon>;
+const User = (p) => <Icon {...p}><img src="/assets/icon-generic.svg" alt="user" className="h-5 w-5"/></Icon>;
+const Settings = (p) => <Icon {...p}><img src="/assets/icon-generic.svg" alt="settings" className="h-5 w-5"/></Icon>;
+const HelpCircle = (p) => <Icon {...p}><img src="/assets/icon-support.svg" alt="help" className="h-5 w-5"/></Icon>;
+const Menu = (p) => <Icon {...p}><img src="/assets/icon-generic.svg" alt="menu" className="h-5 w-5"/></Icon>;
+const Bell = (p) => <Icon {...p}><img src="/assets/icon-generic.svg" alt="bell" className="h-5 w-5"/></Icon>;
+const ChevronRight = (p) => <Icon {...p}><img src="/assets/icon-generic.svg" alt="chevron" className="h-5 w-5"/></Icon>;
 
 // --- Note ---
 // This dashboard now fetches real data from the backend using `api` helper.

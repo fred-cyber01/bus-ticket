@@ -339,10 +339,10 @@ const CompanyRegister = ({ onNavigate, onSuccess }) => {
                 <form className="mt-4">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {[
-                      { key: 'mtn_momo', label: 'MTN Mobile Money', img: 'https://img.icons8.com/color/48/smartphone.png' },
-                      { key: 'airtel_money', label: 'Airtel Money', img: 'https://img.icons8.com/color/48/smartphone.png' },
-                      { key: 'momopay', label: 'MoMoPay', img: 'https://img.icons8.com/color/48/bank-card-back-side.png' },
-                      { key: 'bank_transfer', label: 'Bank Transfer', img: 'https://img.icons8.com/color/48/bank-building.png' }
+                      { key: 'mtn_momo', label: 'MTN Mobile Money', img: '/assets/icon-smartphone.svg' },
+                      { key: 'airtel_money', label: 'Airtel Money', img: '/assets/icon-smartphone.svg' },
+                      { key: 'momopay', label: 'MoMoPay', img: '/assets/icon-card.svg' },
+                      { key: 'bank_transfer', label: 'Bank Transfer', img: '/assets/icon-bank.svg' }
                     ].map(({key,label,img}) => (
                       <button key={key} type="button" onClick={() => setFormData({ ...formData, payment_method: key })} className={`text-left p-3 rounded-lg border ${formData.payment_method === key ? 'border-blue-600 bg-blue-50' : 'border-gray-100 bg-white'}`}>
                         <div className="flex items-center gap-3">

@@ -7,8 +7,8 @@ const compression = require('compression');
 require('dotenv').config();
 
 const config = require('./config/config');
-const { initDb, testConnection } = require('./config/database');
-const { ensureSchema } = require('./scripts/ensureSchema');
+const supabase = require('./config/supabase');
+// NOTE: MySQL removed in Supabase migration. We perform a Supabase health check at startup.
 const { errorHandler, notFound } = require('./middleware/errorHandler');
 const { apiLimiter } = require('./middleware/rateLimiter');
 
@@ -128,23 +128,18 @@ const PORT = config.port;
 
 const startServer = async () => {
   try {
-    // Initialize MySQL database connection
-    await initDb();
-    
-    // Test database connection
-    const dbConnected = await testConnection();
-
-    if (!dbConnected) {
-      console.error('Failed to connect to database. Exiting...');
-      process.exit(1);
-    }
-
-    // Ensure schema compatibility (supports older SQL dumps)
-    try {
-      await ensureSchema();
-    } catch (schemaError) {
-      console.error('Schema compatibility check failed:', schemaError.message);
-      // Don't hard-fail; app can still run if DB is already correct.
+    // Check Supabase connectivity by doing a lightweight read if configured
+    if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+      console.log('⚠ Skipping Supabase connectivity check — SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY not set.');
+    } else {
+      try {
+        const { data, error } = await supabase.from('companies').select('id').limit(1);
+        if (error) throw error;
+        console.log('✓ Supabase connected successfully');
+      } catch (err) {
+        console.error('✗ Supabase connectivity check failed:', err.message || err);
+        process.exit(1);
+      }
     }
 
     // Start listening

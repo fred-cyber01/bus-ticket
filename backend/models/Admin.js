@@ -1,136 +1,73 @@
 // models/Admin.js
-const { query, queryOne } = require('../config/database');
+// Use Supabase for admin operations (migrated from MySQL)
+const supabase = require('../config/supabase');
 const bcrypt = require('bcryptjs');
 
 class Admin {
-  /**
-   * Create a new admin
-   */
   static async create(adminData) {
     const { name, email, password, role = 'admin' } = adminData;
-    
-    // Hash password
-    const hashedPassword = await bcrypt.hash(password, 10);
-
-    const sql = `
-      INSERT INTO admins (name, email, password, role, is_active)
-      VALUES (?, ?, ?, ?, 1)
-    `;
-
-    const result = await query(sql, [name, email, hashedPassword, role]);
-    return result.insertId;
+    const password_hash = await bcrypt.hash(password || 'changeme', 10);
+    const insert = { name, email, password: password_hash, role, is_active: true };
+    const { data, error } = await supabase.from('admins').insert([insert]).select().single();
+    if (error) throw error;
+    return data.id;
   }
 
-  /**
-   * Find admin by ID
-   */
   static async findById(id) {
-    const sql = `
-      SELECT id, name, email, role, is_active, created_at, updated_at
-      FROM admins
-      WHERE id = ?
-    `;
-
-    const results = await query(sql, [id]);
-    return results[0] || null;
+    const { data, error } = await supabase.from('admins').select('id, name, email, role, is_active, created_at, updated_at, password').eq('id', id).limit(1).single();
+    if (error && error.code !== 'PGRST116') throw error;
+    return data || null;
   }
 
-  /**
-   * Find admin by email
-   */
   static async findByEmail(email) {
-    const sql = `
-      SELECT *
-      FROM admins
-      WHERE email = ?
-    `;
-
-    const results = await query(sql, [email]);
-    return results[0] || null;
+    const { data, error } = await supabase.from('admins').select('*').eq('email', email).limit(1).single();
+    if (error && error.code !== 'PGRST116') throw error;
+    return data || null;
   }
 
-  /**
-   * Update admin
-   */
   static async update(id, adminData) {
     const { name, email, role } = adminData;
-
-    const sql = `
-      UPDATE admins
-      SET name = ?, email = ?, role = ?
-      WHERE id = ?
-    `;
-
-    await query(sql, [name, email, role, id]);
-    return this.findById(id);
+    const { data, error } = await supabase.from('admins').update({ name, email, role }).eq('id', id).select().single();
+    if (error) throw error;
+    return data;
   }
 
-  /**
-   * Update password
-   */
   static async updatePassword(id, newPassword) {
-    const hashedPassword = await bcrypt.hash(newPassword, 10);
-
-    const sql = `
-      UPDATE admins
-      SET password = ?
-      WHERE id = ?
-    `;
-
-    await query(sql, [hashedPassword, id]);
+    const password_hash = await bcrypt.hash(newPassword, 10);
+    const { data, error } = await supabase.from('admins').update({ password: password_hash }).eq('id', id).select().single();
+    if (error) throw error;
     return true;
   }
 
-  /**
-   * Verify password
-   */
   static async verifyPassword(plainPassword, hashedPassword) {
     return await bcrypt.compare(plainPassword, hashedPassword);
   }
 
-  /**
-   * Get all admins
-   */
   static async getAll() {
-    const sql = `
-      SELECT id, name, email, role, is_active, created_at, updated_at
-      FROM admins
-      ORDER BY created_at DESC
-    `;
-
-    return await query(sql);
+    const { data, error } = await supabase.from('admins').select('id, name, email, role, is_active, created_at, updated_at').order('created_at', { ascending: false });
+    if (error) throw error;
+    return data;
   }
 
-  /**
-   * Delete admin
-   */
   static async delete(id) {
-    const sql = `DELETE FROM admins WHERE id = ?`;
-    await query(sql, [id]);
+    const { data, error } = await supabase.from('admins').delete().eq('id', id).select().single();
+    if (error) throw error;
     return true;
   }
 
-  /**
-   * Toggle admin active status
-   */
   static async toggleActive(id) {
-    const sql = `
-      UPDATE admins
-      SET is_active = NOT is_active
-      WHERE id = ?
-    `;
-
-    await query(sql, [id]);
-    return this.findById(id);
+    // get current
+    const admin = await this.findById(id);
+    if (!admin) return null;
+    const { data, error } = await supabase.from('admins').update({ is_active: !admin.is_active }).eq('id', id).select().single();
+    if (error) throw error;
+    return data;
   }
 
-  /**
-   * Check if admin exists
-   */
   static async exists() {
-    const sql = `SELECT COUNT(*) as count FROM admins`;
-    const result = await query(sql);
-    return result[0].count > 0;
+    const { data, error } = await supabase.from('admins').select('id').limit(1).single();
+    if (error && error.code !== 'PGRST116') throw error;
+    return !!data;
   }
 }
 

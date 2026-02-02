@@ -1,4 +1,6 @@
 const { query } = require('../config/database');
+const axios = require('axios');
+const SibApiV3Sdk = require('sib-api-v3-sdk');
 
 class SMSService {
   async sendSMS(phone, message) {
@@ -19,6 +21,38 @@ class SMSService {
       } catch (e) {
         console.error('Twilio SMS error', e);
         return { success: false, error: e.message };
+      }
+    }
+    // If Brevo SMS configured, use it
+    const BREVO_API_KEY = process.env.BREVO_API_KEY;
+    const BREVO_SMS_SENDER = process.env.BREVO_SMS_SENDER || process.env.BREVO_SENDER_NAME || null;
+    if (BREVO_API_KEY && BREVO_SMS_SENDER) {
+      try {
+        // Use Brevo SDK if available
+        try {
+          const client = SibApiV3Sdk.ApiClient.instance;
+          client.authentications['api-key'].apiKey = BREVO_API_KEY;
+          if (SibApiV3Sdk.TransactionalSMSApi) {
+            const smsApi = new SibApiV3Sdk.TransactionalSMSApi();
+            // sendTransacSms may accept an object; provide basic structure
+            const smsBody = {
+              sender: BREVO_SMS_SENDER,
+              recipient: to,
+              content: message
+            };
+            const resp = await smsApi.sendTransacSms(smsBody);
+            return { success: true, provider: 'brevo', resp };
+          }
+        } catch (sdkErr) {
+          // SDK unavailable or method missing — fallback to HTTP
+          const url = 'https://api.brevo.com/v3/transactionalSMS/sms';
+          const body = { sender: BREVO_SMS_SENDER, recipients: [{ number: to }], content: message };
+          const resp = await axios.post(url, body, { headers: { 'api-key': BREVO_API_KEY, 'Content-Type': 'application/json' } });
+          return { success: true, provider: 'brevo', resp: resp.data };
+        }
+      } catch (e) {
+        console.error('Brevo SMS error', e && e.response ? e.response.data : e.message || e);
+        // continue to fallback
       }
     }
 

@@ -782,7 +782,7 @@ function AdminDashboard({ token, onNavigate }) {
         <div className="stat-card stat-card-buses">
           <div className="stat-card-inner">
             <div className="stat-icon">
-              <img src="https://images.unsplash.com/photo-1542367597-9f6a0b5ca1b0?auto=format&fit=crop&w=64&q=80" alt="buses" className="h-8 w-8 object-cover" />
+              <img src="/assets/rwanda-ict-logo.png" alt="buses" className="h-10 w-10 object-cover" />
             </div>
             <div className="stat-info">
               <h3>Total Buses</h3>
@@ -795,7 +795,7 @@ function AdminDashboard({ token, onNavigate }) {
         <div className="stat-card stat-card-drivers">
           <div className="stat-card-inner">
             <div className="stat-icon">
-              <img src="https://img.icons8.com/color/48/driver.png" alt="drivers" className="h-8 w-8" />
+              <img src="/assets/icon-generic.svg" alt="drivers" className="h-8 w-8" />
             </div>
             <div className="stat-info">
               <h3>Companies</h3>
@@ -808,7 +808,7 @@ function AdminDashboard({ token, onNavigate }) {
         <div className="stat-card stat-card-routes">
           <div className="stat-card-inner">
             <div className="stat-icon">
-              <img src="https://img.icons8.com/color/48/route.png" alt="routes" className="h-8 w-8" />
+              <img src="/assets/icon-generic.svg" alt="routes" className="h-8 w-8" />
             </div>
             <div className="stat-info">
               <h3>Routes</h3>
@@ -834,7 +834,7 @@ function AdminDashboard({ token, onNavigate }) {
         <div className="stat-card stat-card-bookings">
           <div className="stat-card-inner">
             <div className="stat-icon">
-              <img src="https://img.icons8.com/color/48/ticket.png" alt="ticket" className="h-8 w-8" />
+              <img src="/assets/icon-ticket.svg" alt="ticket" className="h-8 w-8" />
             </div>
             <div className="stat-info">
               <h3>Bookings</h3>

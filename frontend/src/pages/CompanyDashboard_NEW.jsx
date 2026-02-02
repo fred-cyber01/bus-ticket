@@ -210,12 +210,12 @@ function CompanyDashboard({ token, onNavigate }) {
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {[
-          { icon: <img src="https://images.unsplash.com/photo-1542367597-9f6a0b5ca1b0?auto=format&fit=crop&w=64&q=80" alt="buses" className="h-8 w-8 object-cover" />, title: 'Total Buses', value: stats.totalBuses, sub: `${stats.activeBuses || 0} active`, color: 'blue' },
-          { icon: <img src="https://img.icons8.com/color/48/user--v1.png" alt="drivers" className="h-8 w-8" />, title: 'Drivers', value: stats.totalDrivers, sub: `${stats.activeDrivers || 0} active`, color: 'emerald' },
-          { icon: <img src="https://img.icons8.com/color/48/route.png" alt="routes" className="h-8 w-8" />, title: 'Routes', value: stats.totalRoutes, sub: 'Available routes', color: 'orange' },
-          { icon: <img src="https://img.icons8.com/color/48/traffic-jam.png" alt="trips" className="h-8 w-8" />, title: 'Active Trips', value: stats.activeTrips, sub: 'Upcoming trips', color: 'purple' },
-          { icon: <img src="https://img.icons8.com/color/48/ticket.png" alt="bookings" className="h-8 w-8" />, title: 'Bookings', value: stats.todayBookings, sub: `Total: ${stats.totalBookings || 0}`, color: 'amber' },
-          { icon: <img src="https://img.icons8.com/color/48/money-bag.png" alt="revenue" className="h-8 w-8" />, title: 'Revenue', value: `${(stats.totalRevenue || 0).toLocaleString()} RWF`, sub: 'Total earnings', color: 'cyan' },
+          { icon: <img src="/assets/rwanda-ict-logo.png" alt="buses" className="h-10 w-10 object-cover" />, title: 'Total Buses', value: stats.totalBuses, sub: `${stats.activeBuses || 0} active`, color: 'blue' },
+          { icon: <img src="/assets/icon-generic.svg" alt="drivers" className="h-8 w-8" />, title: 'Drivers', value: stats.totalDrivers, sub: `${stats.activeDrivers || 0} active`, color: 'emerald' },
+          { icon: <img src="/assets/icon-generic.svg" alt="routes" className="h-8 w-8" />, title: 'Routes', value: stats.totalRoutes, sub: 'Available routes', color: 'orange' },
+          { icon: <img src="/assets/icon-generic.svg" alt="trips" className="h-8 w-8" />, title: 'Active Trips', value: stats.activeTrips, sub: 'Upcoming trips', color: 'purple' },
+          { icon: <img src="/assets/icon-ticket.svg" alt="bookings" className="h-8 w-8" />, title: 'Bookings', value: stats.todayBookings, sub: `Total: ${stats.totalBookings || 0}`, color: 'amber' },
+          { icon: <img src="/assets/icon-generic.svg" alt="revenue" className="h-8 w-8" />, title: 'Revenue', value: `${(stats.totalRevenue || 0).toLocaleString()} RWF`, sub: 'Total earnings', color: 'cyan' },
         ].map((stat, i) => (
           <div key={i} className="card card-hover p-6 flex items-center shadow-sm hover:shadow-md transition-all">
             <div className={`flex-shrink-0 h-14 w-14 rounded-full bg-${stat.color}-100 flex items-center justify-center text-2xl mr-4`}>
@@ -267,7 +267,7 @@ function CompanyDashboard({ token, onNavigate }) {
                     content = (
                       <div className="flex items-center">
                         <div className="h-10 w-10 bg-blue-50 rounded-lg flex items-center justify-center mr-3">
-                          <img src="https://images.unsplash.com/photo-1542367597-9f6a0b5ca1b0?auto=format&fit=crop&w=80&q=80" alt="bus" className="h-8 w-8 object-cover rounded" />
+                          <img src="/assets/rwanda-ict-logo.png" alt="bus" className="h-10 w-10 object-cover rounded" />
                         </div>
                         <div>
                           <div className="font-bold text-slate-900">{item.plate_number}</div>
@@ -472,7 +472,7 @@ function CompanyDashboard({ token, onNavigate }) {
         <nav className="sidebar-nav">
           {[
             { id: 'overview', icon: <img src="https://img.icons8.com/color/48/combo-chart.png" alt="overview" className="h-5 w-5" />, label: 'Overview' },
-            { id: 'buses', icon: <img src="https://images.unsplash.com/photo-1542367597-9f6a0b5ca1b0?auto=format&fit=crop&w=64&q=80" alt="buses" className="h-5 w-5 object-cover" />, label: 'Fleet' },
+            { id: 'buses', icon: <img src="/assets/rwanda-ict-logo.png" alt="buses" className="h-8 w-8 object-cover" />, label: 'Fleet' },
             { id: 'drivers', icon: <img src="https://img.icons8.com/color/48/user--v1.png" alt="drivers" className="h-5 w-5" />, label: 'Drivers' },
             { id: 'routes', icon: <img src="https://img.icons8.com/color/48/route.png" alt="routes" className="h-5 w-5" />, label: 'Routes' },
             { id: 'trips', icon: <img src="https://img.icons8.com/color/48/traffic-jam.png" alt="trips" className="h-5 w-5" />, label: 'Trips' },
