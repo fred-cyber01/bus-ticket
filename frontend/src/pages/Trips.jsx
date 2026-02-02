@@ -3,9 +3,11 @@ import '../styles/add-trip.css';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
 import SeatSelection from './SeatSelection';
+import { useLanguage } from '../context/LanguageContext';
 
 const Trips = () => {
   const { isAdmin } = useAuth();
+  const { t } = useLanguage();
   const [trips, setTrips] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -259,21 +261,21 @@ const Trips = () => {
   };
 
   if (loading) {
-    return <div className="loading">Loading trips...</div>;
+    return <div className="loading">{t ? (t('search') + '...') : 'Loading trips...'}</div>;
   }
 
   return (
-    <div className="max-w-6xl mx-auto py-8 px-4">
-      <div className="flex items-center justify-between mb-6">
-        <h2 className="text-2xl font-semibold text-slate-800">Available Trips</h2>
+    <div className="max-w-6xl mx-auto py-6 px-4 sm:py-8">
+      <div className="flex items-center justify-between mb-6 gap-4 flex-col sm:flex-row">
+        <h2 className="text-2xl font-semibold text-slate-800">{t('available_trips')}</h2>
         {isAdmin() && (
-          <button onClick={() => setShowCreateForm(!showCreateForm)} className="inline-flex items-center gap-2 rounded-lg bg-gradient-to-r from-emerald-500 to-teal-500 text-white px-4 py-2">{showCreateForm ? 'Cancel' : '+ Create Trip'}</button>
+          <button onClick={() => setShowCreateForm(!showCreateForm)} className="inline-flex items-center gap-2 rounded-lg bg-gradient-to-r from-emerald-500 to-teal-500 text-white px-3 py-2 text-sm">{showCreateForm ? 'Cancel' : '+ Create Trip'}</button>
         )}
       </div>
 
       {showCreateForm && isAdmin() && (
         <div className="mb-6 bg-white rounded-2xl p-6 shadow-sm">
-          <h3 className="text-lg font-semibold mb-3">Create New Trip</h3>
+          <h3 className="text-lg font-semibold mb-3">{t('create_new_trip')}</h3>
           <form onSubmit={handleCreateTrip} className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <input className="border rounded-lg px-4 py-2" type="text" value={newTrip.origin} onChange={(e) => setNewTrip({ ...newTrip, origin: e.target.value })} required placeholder="Origin (e.g., Kigali)" />
             <input className="border rounded-lg px-4 py-2" type="text" value={newTrip.destination} onChange={(e) => setNewTrip({ ...newTrip, destination: e.target.value })} required placeholder="Destination (e.g., Butare)" />
@@ -290,13 +292,13 @@ const Trips = () => {
       )}
 
       <div className="mb-6 bg-white rounded-2xl p-4 shadow-sm">
-        <h3 className="text-md font-medium mb-3">Filter Trips</h3>
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+        <h3 className="text-md font-medium mb-3">{t('filter_trips')}</h3>
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
           <input className="border rounded-lg px-3 py-2" type="text" name="origin" value={filters.origin} onChange={handleFilterChange} placeholder="Origin" />
           <input className="border rounded-lg px-3 py-2" type="text" name="destination" value={filters.destination} onChange={handleFilterChange} placeholder="Destination" />
           <input className="border rounded-lg px-3 py-2" type="date" name="date" value={filters.date} onChange={handleFilterChange} />
-          <div className="flex items-center">
-            <button onClick={handleSearch} className="w-full rounded-lg bg-amber-500 hover:bg-amber-600 text-white px-4 py-2">Search</button>
+            <div className="flex items-center">
+            <button onClick={handleSearch} className="w-full rounded-lg bg-amber-500 hover:bg-amber-600 text-white px-4 py-2">{t('search')}</button>
           </div>
         </div>
       </div>
@@ -304,7 +306,7 @@ const Trips = () => {
       {error && <div className="mb-4 rounded-md bg-red-50 p-3 text-red-700 text-sm">{error}</div>}
 
       {trips.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-slate-200 p-8 text-center text-slate-500">No trips found matching your criteria.</div>
+        <div className="rounded-lg border border-dashed border-slate-200 p-8 text-center text-slate-500">{t('no_trips_found')}</div>
       ) : (
         <>
           <div className="mb-4 flex items-center justify-between">
@@ -318,27 +320,24 @@ const Trips = () => {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {currentTrips.map((trip) => (
-              <div key={trip.tripId} className="bg-white rounded-2xl p-5 shadow-sm">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <div className="text-sm text-slate-500">{trip.companyName}</div>
-                    <div className="text-lg font-semibold text-slate-800">{trip.origin} → {trip.destination}</div>
+              <div key={trip.tripId} className="bg-white rounded-2xl p-4 sm:p-5 shadow-sm">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm text-slate-500 truncate">{trip.companyName}</div>
+                    <div className="text-lg font-semibold text-slate-800 truncate">{trip.origin} → {trip.destination}</div>
                     <div className="text-sm text-slate-500">{formatDate(trip.departureTime)}{trip.arrivalTime ? ` • ${formatDate(trip.arrivalTime)}` : ''}</div>
                   </div>
                   <div className="text-right">
                     <div className="text-lg font-bold">{trip.price ? `${trip.price} RWF` : '—'}</div>
                     <div className="text-sm text-slate-500">Seats: <span className="font-medium">{trip.availableSeats}/{trip.totalSeats}</span></div>
+                    <button onClick={() => openSeatSelector(trip)} disabled={trip.availableSeats <= 0} className={`mt-3 sm:mt-2 w-full sm:w-auto rounded-lg px-4 py-2 text-white ${trip.availableSeats > 0 ? 'bg-gradient-to-r from-blue-600 to-purple-600' : 'bg-gray-300 cursor-not-allowed'}`}>{trip.availableSeats > 0 ? 'Book Now' : 'Sold Out'}</button>
+                    {isAdmin() && (<div className="mt-2 sm:mt-1"><button onClick={() => handleCancelTrip(trip.tripId)} className="rounded-lg px-4 py-2 border border-red-300 text-red-600">Cancel</button></div>)}
                   </div>
                 </div>
 
                 {trip.availableSeatNumbers && trip.availableSeatNumbers.length > 0 && (
                   <div className="mt-3 text-sm text-slate-600">Available seats: {trip.availableSeatNumbers.slice(0,10).join(', ')}{trip.availableSeatNumbers.length > 10 ? '...' : ''}</div>
                 )}
-
-                <div className="mt-4 flex gap-3">
-                  <button onClick={() => openSeatSelector(trip)} disabled={trip.availableSeats <= 0} className={`flex-1 rounded-lg px-4 py-2 text-white ${trip.availableSeats > 0 ? 'bg-gradient-to-r from-blue-600 to-purple-600' : 'bg-gray-300 cursor-not-allowed'}`}>{trip.availableSeats > 0 ? 'Book Now' : 'Sold Out'}</button>
-                  {isAdmin() && (<button onClick={() => handleCancelTrip(trip.tripId)} className="rounded-lg px-4 py-2 border border-red-300 text-red-600">Cancel</button>)}
-                </div>
               </div>
             ))}
           </div>

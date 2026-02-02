@@ -52,12 +52,12 @@ function Home({ onNavigate }) {
                             </h1>
                             <p className="text-lg sm:text-xl text-blue-100 max-w-2xl">{t('choose_desc')}</p>
 
-                            <div className="flex flex-col sm:flex-row gap-4">
-                                <button onClick={() => navigateTo('trips')} aria-label="Book your trip" className="bg-gradient-to-r from-yellow-400 to-orange-400 text-blue-900 font-bold py-3 px-6 rounded-2xl text-lg shadow-xl flex items-center gap-3">
-                                    <img src="/assets/rwanda-ict-logo.png" alt="Bus" className="h-7 w-7 sm:h-9 sm:w-9 object-contain" />
+                            <div className="flex flex-col sm:flex-row gap-3">
+                                <button onClick={() => navigateTo('trips')} aria-label="Book your trip" className="w-full sm:w-auto bg-gradient-to-r from-yellow-400 to-orange-400 text-blue-900 font-bold py-3 px-4 sm:px-6 rounded-2xl text-base sm:text-lg shadow-xl flex items-center justify-center gap-3">
+                                    <img src="/assets/rwanda-ict-logo.png" alt="Bus" className="h-6 w-6 sm:h-9 sm:w-9 object-contain" />
                                     <span>{t('book_your_trip')}</span>
                                 </button>
-                                <button onClick={() => navigateTo('contact')} aria-label="Contact us" className="bg-white/10 text-white font-semibold py-3 px-6 rounded-2xl text-lg shadow-md flex items-center gap-3">
+                                <button onClick={() => navigateTo('contact')} aria-label="Contact us" className="w-full sm:w-auto bg-white/10 text-white font-semibold py-3 px-4 sm:px-6 rounded-2xl text-base sm:text-lg shadow-md flex items-center justify-center gap-3">
                                     <img src="/assets/icon-generic.svg" alt="Contact" className="h-5 w-5 object-contain" />
                                     <span>{t('contact_us')}</span>
                                 </button>
@@ -66,17 +66,17 @@ function Home({ onNavigate }) {
 
                         <div className="relative flex items-center justify-center">
                             <div className="rounded-3xl overflow-hidden shadow-2xl border border-white/20 w-full relative">
-                                <img src="/assets/bus%20image.jpg" alt="Bus" className="w-full h-96 object-cover block" />
+                                <img src="/assets/bus%20image.jpg" alt="Bus" className="w-full h-56 sm:h-72 md:h-96 object-cover block" />
                                 <div className="absolute inset-0 bg-gradient-to-r from-black/40 via-transparent to-transparent mix-blend-multiply" />
-                                <div className="absolute top-6 left-6 bg-red-600 text-white rounded-full px-4 py-2 font-semibold shadow-lg">{t('online_booking')}</div>
+                                <div className="absolute top-4 left-4 sm:top-6 sm:left-6 bg-red-600 text-white rounded-full px-3 py-1.5 sm:px-4 sm:py-2 font-semibold shadow-lg text-xs sm:text-sm">{t('online_booking')}</div>
                             </div>
                         </div>
                     </div>
 
                     {/* Search card overlapping hero bottom */}
                     <div className="relative">
-                        <div className="-mt-12 mx-auto max-w-4xl">
-                            <form onSubmit={(e) => { handleSearch(e); navigateTo('trips', searchData); }} className="bg-white rounded-3xl shadow-2xl p-6 md:p-8 grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+                        <div className="-mt-12 mx-auto max-w-4xl px-4 sm:px-0">
+                            <form onSubmit={(e) => { handleSearch(e); navigateTo('trips', searchData); }} className="bg-white rounded-3xl shadow-2xl p-4 sm:p-6 md:p-8 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 items-end">
                                 <div>
                                     <label className="block text-xs font-semibold text-gray-600">From</label>
                                     <input type="text" placeholder="Origin city" value={searchData.origin} onChange={(e) => setSearchData({ ...searchData, origin: e.target.value })} className="w-full px-3 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none" />
@@ -92,7 +92,7 @@ function Home({ onNavigate }) {
                                 <div className="md:col-span-1">
                                     <button type="submit" className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white font-semibold py-3 px-4 rounded-xl shadow-md flex items-center justify-center gap-2">
                                         <img src="/assets/icon-generic.svg" alt="Search" className="h-5 w-5" />
-                                        <span>Search Trips</span>
+                                        <span>{t('search_trips')}</span>
                                     </button>
                                 </div>
                             </form>

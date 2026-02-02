@@ -3,6 +3,7 @@ import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
+import { useLanguage } from '../context/LanguageContext';
 
 const Auth = ({ onNavigate }) => {
   const [isSignIn, setIsSignIn] = useState(true);
@@ -51,6 +52,7 @@ const Auth = ({ onNavigate }) => {
     setLoading(true);
     setError('');
     setSuccess('');
+  const { t } = useLanguage();
 
     try {
       if (isSignIn) {
@@ -67,8 +69,8 @@ const Auth = ({ onNavigate }) => {
           setSuccess('Account created successfully! Please sign in.');
           setIsSignIn(true);
           setFormData({ username: '', email: '', password: '', role: 'user' });
-        } else {
-          setError(result.error || 'Sign up failed');
+              <h1 className="text-2xl font-semibold text-gray-900">{isSignIn ? t('welcome_back') : t('create_account')}</h1>
+              <p className="text-sm text-gray-500 mt-1">{isSignIn ? t('sign_in_to_continue') : t('create_account_to_start')}</p>
         }
       }
     } catch (err) {
@@ -96,7 +98,7 @@ const Auth = ({ onNavigate }) => {
             </button>
           </div>
 
-          {error && (
+              <label htmlFor="email" className="block text-sm font-medium text-gray-700">{t('email')}</label>
             <div className="mb-4 rounded-md bg-red-50 p-3 text-red-700 text-sm">{error}</div>
           )}
           {success && (
@@ -110,7 +112,7 @@ const Auth = ({ onNavigate }) => {
                 <input
                   id="username"
                   name="username"
-                  value={formData.username}
+              <label htmlFor="password" className="block text-sm font-medium text-gray-700">{t('password')}</label>
                   onChange={handleChange}
                   required={!isSignIn}
                   placeholder="Your display name"
@@ -120,7 +122,7 @@ const Auth = ({ onNavigate }) => {
             )}
 
             <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700">Email</label>
+                  placeholder={t('password_placeholder')}
               <input
                 id="email"
                 name="email"
@@ -132,15 +134,17 @@ const Auth = ({ onNavigate }) => {
                 className="mt-1 block w-full rounded-lg border border-gray-200 px-4 py-3 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
-
-            <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700">Password</label>
-              <div className="relative mt-1">
-                <input
-                  id="password"
-                  name="password"
-                  type={showPassword ? 'text' : 'password'}
-                  minLength={6}
+              {isSignIn && (
+                <div className="text-right mt-1">
+                  <button
+                    type="button"
+                    className="text-xs text-indigo-600 hover:underline focus:outline-none"
+                    onClick={() => { setShowForgot(true); setForgotEmail(formData.email); setForgotMsg(''); }}
+                  >
+                    {t('forgot_password')}
+                  </button>
+                </div>
+              )}
                   value={formData.password}
                   onChange={handleChange}
                   required
@@ -148,16 +152,16 @@ const Auth = ({ onNavigate }) => {
                   className="block w-full rounded-lg border border-gray-200 px-4 py-3 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
                 <button
-                  type="button"
+                  <h2 className="text-lg font-semibold mb-2">{t('forgot_password')}</h2>
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute inset-y-0 right-2 flex items-center text-gray-500"
-                  aria-label={showPassword ? 'Hide password' : 'Show password'}
-                >
-                  {showPassword ? '🙈' : '👁️'}
-                </button>
-              </div>
-              {isSignIn && (
-                <div className="text-right mt-1">
+                    <input
+                      type="email"
+                      className="block w-full rounded-lg border border-gray-200 px-4 py-2 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder={t('email')}
+                      value={forgotEmail}
+                      onChange={e => setForgotEmail(e.target.value)}
+                      required
+                    />
                   <button
                     type="button"
                     className="text-xs text-indigo-600 hover:underline focus:outline-none"

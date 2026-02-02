@@ -10,8 +10,8 @@ const Navbar = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           <div className="flex items-center gap-3">
-            <img src="/assets/rwanda-ict-logo.png" alt="Rwanda Ict solution logo" className="h-16 w-16 object-contain" />
-            <div>
+            <img src="/assets/rwanda-ict-logo.png" alt="logo" className="h-10 w-10 sm:h-12 sm:w-12 object-contain" />
+            <div className="hidden md:block">
               <div className="text-lg font-semibold text-blue-700">Rwanda Ict solution</div>
               <div className="text-xs text-gray-500">ICT Solutions · Bus Booking</div>
             </div>
@@ -19,30 +19,31 @@ const Navbar = () => {
 
           <div className="flex items-center gap-4">
             {isAuthenticated ? (
-              <div className="flex items-center gap-4">
-                <div className="text-sm text-gray-700">Welcome, <strong>{user?.username}</strong></div>
+              <div className="flex items-center gap-3">
+                <div className="text-sm text-gray-700 hidden sm:block">{t('welcome_back')}, <strong>{user?.username}</strong></div>
                 {isAdmin && isAdmin() && (
                   <span className="px-2 py-1 text-xs bg-yellow-100 text-yellow-800 rounded">Admin</span>
                 )}
                 <button
                   onClick={signout}
-                  className="ml-2 inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-semibold shadow-sm transition"
+                  className="ml-2 inline-flex items-center gap-2 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-semibold shadow-sm transition"
                 >
                   <img src="/assets/icon-generic.svg" alt="logout" className="h-4 w-4" />
-                  {t('logout')}
+                  <span className="sr-only">{t('logout')}</span>
+                  <span className="hidden sm:inline">{t('logout')}</span>
                 </button>
               </div>
             ) : (
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2">
                 <a
                   href="#/auth"
-                  className="px-4 py-2 bg-yellow-400 hover:bg-yellow-300 text-blue-900 font-semibold rounded-lg shadow-sm transition inline-block text-center"
+                  className="px-3 py-2 bg-yellow-400 hover:bg-yellow-300 text-blue-900 font-semibold rounded-lg shadow-sm transition inline-block text-center text-sm"
                 >
                   {t('sign_in')}
                 </a>
                 <a
                   href="#/company-register"
-                  className="px-4 py-2 border border-gray-200 text-gray-700 rounded-lg text-sm hover:bg-gray-50 transition inline-block text-center"
+                  className="px-3 py-2 border border-gray-200 text-gray-700 rounded-lg text-sm hover:bg-gray-50 transition inline-block text-center"
                 >
                   {t('register_company')}
                 </a>
