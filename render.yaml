@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: bus-ticket-backend
+    env: node
+    branch: main
+    plan: free
+    buildCommand: cd backend && npm install
+    startCommand: cd backend && npm run start
+    healthCheckPath: /health
+    healthCheckIntervalSeconds: 10
+    healthCheckTimeoutSeconds: 5
+    envVars: []
