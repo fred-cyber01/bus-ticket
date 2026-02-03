@@ -91,6 +91,12 @@ app.get('/health', (req, res) => {
   });
 });
 
+// Simple plain-text health check used by some platforms/load-balancers
+// Returns plain 'ok' when the server is healthy.
+app.get('/healthz', (req, res) => {
+  res.status(200).send('ok');
+});
+
 // API routes
 app.use('/api/auth', authRoutes);
 app.use('/api/company-auth', companyAuthRoutes);
