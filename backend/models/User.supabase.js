@@ -27,25 +27,14 @@ class UserSupabase {
     return await adapter.getUserByPhone(phone);
   }
 
-  static async verifyPassword(email, plainPassword) {
-    // Deprecated signature previously accepted (email, plainPassword).
-    // New standardized signature: (plainPassword, hashedPassword)
-    // If callers pass (email, plainPassword) we attempt to detect and handle it.
-    if (typeof plainPassword === 'string' && plainPassword.startsWith('$2')) {
-      // Called as verifyPassword(plainPassword, hashedPassword) mistakenly
-      return await bcrypt.compare(email, plainPassword);
+  static async verifyPassword(plainPassword, hashedPassword) {
+    // Standard signature: (plainPassword, hashedPassword)
+    if (!plainPassword || !hashedPassword) return false;
+    try {
+      return await bcrypt.compare(plainPassword, hashedPassword);
+    } catch (err) {
+      return false;
     }
-
-    // If called as verifyPassword(plainPassword, hashedPassword)
-    // when both args look like passwords/hashes
-    if (typeof email === 'string' && typeof plainPassword === 'string' && plainPassword.startsWith('$2')) {
-      return await bcrypt.compare(email, plainPassword);
-    }
-
-    // Fallback: treat first arg as plain password and second as hash
-    // (most callers should now use this signature)
-    if (!plainPassword) return false;
-    return await bcrypt.compare(email, plainPassword);
   }
 
   static async upsert(userData) {

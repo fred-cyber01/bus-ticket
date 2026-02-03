@@ -34,7 +34,19 @@ exports.getTrips = async (req, res, next) => {
     const userType = String(req.user?.type || req.user?.role || '').toLowerCase();
     const approvedOnly = userType === 'customer' || userType === '';
 
-    const trips = await Trip.findAllWithFilters(filters, { approvedOnly });
+    let trips;
+    if (typeof Trip.findAllWithFilters === 'function') {
+      trips = await Trip.findAllWithFilters(filters, { approvedOnly });
+    } else if (typeof Trip.findAll === 'function') {
+      console.warn('Trip.findAllWithFilters missing, falling back to Trip.findAll');
+      trips = await Trip.findAll(filters);
+      if (approvedOnly) {
+        trips = trips.filter(t => t.status === 'approved' || t.is_active === 1 || t.is_active === true);
+      }
+    } else {
+      console.error('Trip model missing required finder methods');
+      return res.status(500).json({ success: false, message: 'Server misconfiguration: trip search not available' });
+    }
     
     res.status(200).json({
       success: true,
