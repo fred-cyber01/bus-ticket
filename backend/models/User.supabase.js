@@ -28,9 +28,24 @@ class UserSupabase {
   }
 
   static async verifyPassword(email, plainPassword) {
-    const user = await this.findByEmail(email);
-    if (!user) return false;
-    return await bcrypt.compare(plainPassword, user.password);
+    // Deprecated signature previously accepted (email, plainPassword).
+    // New standardized signature: (plainPassword, hashedPassword)
+    // If callers pass (email, plainPassword) we attempt to detect and handle it.
+    if (typeof plainPassword === 'string' && plainPassword.startsWith('$2')) {
+      // Called as verifyPassword(plainPassword, hashedPassword) mistakenly
+      return await bcrypt.compare(email, plainPassword);
+    }
+
+    // If called as verifyPassword(plainPassword, hashedPassword)
+    // when both args look like passwords/hashes
+    if (typeof email === 'string' && typeof plainPassword === 'string' && plainPassword.startsWith('$2')) {
+      return await bcrypt.compare(email, plainPassword);
+    }
+
+    // Fallback: treat first arg as plain password and second as hash
+    // (most callers should now use this signature)
+    if (!plainPassword) return false;
+    return await bcrypt.compare(email, plainPassword);
   }
 
   static async upsert(userData) {

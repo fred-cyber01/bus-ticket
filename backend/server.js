@@ -142,6 +142,20 @@ const startServer = async () => {
         const { data, error } = await supabase.from('companies').select('id').limit(1);
         if (error) throw error;
         console.log('✓ Supabase connected successfully');
+
+        // Ensure a default admin exists so admin login works out-of-the-box in dev
+        try {
+          const Admin = require('./models/Admin');
+          const adminExists = await Admin.exists();
+          if (!adminExists) {
+            const createdId = await Admin.create(config.defaultAdmin);
+            console.log(`✓ Created default admin (${config.defaultAdmin.email}) with id ${createdId}`);
+          } else {
+            console.log('✓ Admin user exists');
+          }
+        } catch (err) {
+          console.error('Error ensuring default admin:', err.message || err);
+        }
       } catch (err) {
         console.error('✗ Supabase connectivity check failed:', err.message || err);
         process.exit(1);
