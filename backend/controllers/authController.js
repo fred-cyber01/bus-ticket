@@ -343,26 +343,33 @@ exports.companyLogin = asyncHandler(async (req, res) => {
         company_id: manager.company_id,
         type: 'company_manager'
       },
-    config.jwt.secret,
-    { expiresIn: config.jwt.expire }
-  );
+      config.jwt.secret,
+      { expiresIn: config.jwt.expire }
+    );
 
-  res.json({
-    success: true,
-    message: 'Company manager login successful',
-    data: {
-      token,
-      user: {
-        id: manager.id,
-        name: manager.name,
-        email: manager.email,
-        role: 'company_manager',
-        company_id: manager.company_id,
-        phone: manager.phone,
-        type: 'company_manager'
+    res.json({
+      success: true,
+      message: 'Company manager login successful',
+      data: {
+        token,
+        user: {
+          id: manager.id,
+          name: manager.name,
+          email: manager.email,
+          role: 'company_manager',
+          company_id: manager.company_id,
+          phone: manager.phone,
+          type: 'company_manager'
+        }
       }
-    }
-  });
+    });
+  } catch (error) {
+    console.error('❌ Company login error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'An error occurred during login. Please try again.'
+    });
+  }
 });
 
 /**
