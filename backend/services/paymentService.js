@@ -1,7 +1,7 @@
 // services/paymentService.js
 const axios = require('axios');
 const crypto = require('crypto');
-const { query } = require('../config/database');
+const supabase = require('../config/supabase');
 const moment = require('moment-timezone');
 
 class PaymentService {
@@ -82,69 +82,61 @@ class PaymentService {
     const paymentDataJson = Object.assign({}, metadata, { payment_id, transaction_ref });
     const referenceId = metadata && metadata.ticket_id ? metadata.ticket_id : (metadata.subscription_id || null);
 
-    const sql = `
-      INSERT INTO payments (
-        transaction_ref, payment_type, amount, payment_method,
-        phone_number, company_id, user_id, status, payment_data, reference_id, created_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
-    `;
-
-    const result = await query(sql, [
+    const { data, error } = await supabase.from('payments').insert([{
       transaction_ref,
       payment_type,
       amount,
       payment_method,
       phone_number,
-      company_id || null,
-      user_id || null,
+      company_id: company_id || null,
+      user_id: user_id || null,
       status,
-      JSON.stringify(paymentDataJson),
-      referenceId
-    ]);
+      payment_data: paymentDataJson,
+      reference_id: referenceId,
+      created_at: moment().tz('Africa/Kigali').format('YYYY-MM-DD HH:mm:ss')
+    }]).select('id').single();
 
-    return result.insertId;
+    if (error) throw error;
+    return data.id;
   }
 
   /**
    * Update payment status
    */
   async updatePaymentStatus(paymentIdOrTransactionRef, status, transactionRef = null, metadata = {}) {
-    // Prefer updating by transactionRef when provided; otherwise accept transaction_ref as identifier
-    const params = [];
-    let whereClause = '';
+    try {
+      const updateData = {
+        status,
+        updated_at: moment().tz('Africa/Kigali').format('YYYY-MM-DD HH:mm:ss')
+      };
 
-    if (transactionRef) {
-      whereClause = 'WHERE transaction_ref = ?';
-      params.push(transactionRef);
-    } else if (String(paymentIdOrTransactionRef || '').startsWith('TXN-') || String(paymentIdOrTransactionRef || '').startsWith('txn-')) {
-      // treat first arg as transaction ref
-      whereClause = 'WHERE transaction_ref = ?';
-      params.push(paymentIdOrTransactionRef);
-    } else if (!isNaN(parseInt(paymentIdOrTransactionRef))) {
-      // treat as internal id
-      whereClause = 'WHERE id = ?';
-      params.push(parseInt(paymentIdOrTransactionRef));
-    } else {
-      // fallback: cannot determine target
-      throw new Error('Unable to determine payment record to update');
+      if (metadata && Object.keys(metadata).length > 0) {
+        updateData.payment_data = metadata;
+      }
+
+      if (transactionRef) {
+        updateData.transaction_ref = transactionRef;
+      }
+
+      // Determine which field to query by
+      let query = supabase.from('payments');
+      
+      if (transactionRef) {
+        query = query.eq('transaction_ref', transactionRef);
+      } else if (String(paymentIdOrTransactionRef || '').startsWith('TXN-') || String(paymentIdOrTransactionRef || '').startsWith('txn-')) {
+        query = query.eq('transaction_ref', paymentIdOrTransactionRef);
+      } else if (!isNaN(parseInt(paymentIdOrTransactionRef))) {
+        query = query.eq('id', parseInt(paymentIdOrTransactionRef));
+      } else {
+        throw new Error('Unable to determine payment record to update');
+      }
+
+      const { error } = await query.update(updateData);
+      if (error) throw error;
+    } catch (error) {
+      console.error('Error updating payment status:', error);
+      throw error;
     }
-
-    const updates = ['status = ?'];
-    const updateParams = [status];
-
-    if (metadata && Object.keys(metadata).length > 0) {
-      updates.push('payment_data = ?');
-      updateParams.push(JSON.stringify(metadata));
-    }
-
-    // Do not overwrite transaction_ref unless explicitly provided
-    if (transactionRef) {
-      updates.push('transaction_ref = ?');
-      updateParams.push(transactionRef);
-    }
-
-    const sql = `UPDATE payments SET ${updates.join(', ')}, updated_at = NOW() ${whereClause}`;
-    await query(sql, [...updateParams, ...params]);
   }
 
   /**
@@ -152,24 +144,55 @@ class PaymentService {
    */
   async getPayment(paymentIdOrTransactionRef) {
     if (!paymentIdOrTransactionRef) return null;
-    // Try by transaction_ref first
-    const byTx = await query('SELECT * FROM payments WHERE transaction_ref = ? LIMIT 1', [paymentIdOrTransactionRef]);
-    if (byTx && byTx.length > 0) return byTx[0];
-    // Try by numeric id
-    if (!isNaN(parseInt(paymentIdOrTransactionRef))) {
-      const byId = await query('SELECT * FROM payments WHERE id = ? LIMIT 1', [parseInt(paymentIdOrTransactionRef)]);
-      return byId[0] || null;
+    
+    try {
+      // Try by transaction_ref first
+      let { data, error } = await supabase
+        .from('payments')
+        .select('*')
+        .eq('transaction_ref', paymentIdOrTransactionRef)
+        .limit(1)
+        .single();
+      
+      if (data) return data;
+      
+      // Try by numeric id if not found and it's a number
+      if (!isNaN(parseInt(paymentIdOrTransactionRef))) {
+        const result = await supabase
+          .from('payments')
+          .select('*')
+          .eq('id', parseInt(paymentIdOrTransactionRef))
+          .limit(1)
+          .single();
+        
+        return result.data || null;
+      }
+      
+      return null;
+    } catch (error) {
+      console.error('Error getting payment:', error);
+      return null;
     }
-    // Otherwise null
-    return null;
   }
 
   /**
    * Get payment by transaction reference
    */
   async getPaymentByTransactionRef(transactionRef) {
-    const payments = await query('SELECT * FROM payments WHERE transaction_ref = ? LIMIT 1', [transactionRef]);
-    return payments[0] || null;
+    try {
+      const { data, error } = await supabase
+        .from('payments')
+        .select('*')
+        .eq('transaction_ref', transactionRef)
+        .limit(1)
+        .single();
+      
+      if (error && error.code !== 'PGRST116') throw error;
+      return data || null;
+    } catch (error) {
+      console.error('Error getting payment by transaction ref:', error);
+      return null;
+    }
   }
 
   /**
@@ -450,10 +473,14 @@ class PaymentService {
         if (!ticketId) {
           console.warn('simulatePaymentSuccess: no ticket id found in payment metadata, skipping ticket update', { paymentId, transactionRef, metadata: meta2 });
         } else {
-          await query(
-            'UPDATE tickets SET payment_status = "completed", ticket_status = "confirmed" WHERE id = ?',
-            [ticketId]
-          );
+          await supabase
+            .from('tickets')
+            .update({
+              payment_status: 'completed',
+              ticket_status: 'confirmed',
+              updated_at: moment().tz('Africa/Kigali').format('YYYY-MM-DD HH:mm:ss')
+            })
+            .eq('id', ticketId);
         }
       }
 
@@ -560,151 +587,167 @@ class PaymentService {
    * Get payment history for user/company
    */
   async getPaymentHistory(userId = null, companyId = null, limit = 50) {
-    let sql = 'SELECT * FROM payments WHERE 1=1';
-    const params = [];
+    try {
+      let query = supabase.from('payments').select('*');
 
-    if (userId) {
-      sql += ' AND user_id = ?';
-      params.push(userId);
+      if (userId) {
+        query = query.eq('user_id', userId);
+      }
+
+      if (companyId) {
+        query = query.eq('company_id', companyId);
+      }
+
+      query = query.order('created_at', { ascending: false }).limit(limit);
+
+      const { data: payments, error } = await query;
+
+      if (error) throw error;
+
+      return (payments || []).map(payment => ({
+        paymentId: payment.transaction_ref || payment.id,
+        transactionRef: payment.transaction_ref,
+        paymentType: payment.payment_type,
+        amount: payment.amount,
+        paymentMethod: payment.payment_method,
+        status: payment.status,
+        createdAt: payment.created_at,
+        updatedAt: payment.updated_at,
+        metadata: typeof payment.payment_data === 'string' ? (JSON.parse(payment.payment_data || '{}') || {}) : (payment.payment_data || {})
+      }));
+    } catch (error) {
+      console.error('Error fetching payment history:', error);
+      return [];
     }
-
-    if (companyId) {
-      sql += ' AND company_id = ?';
-      params.push(companyId);
-    }
-
-    sql += ' ORDER BY created_at DESC LIMIT ?';
-    params.push(limit);
-
-    const payments = await query(sql, params);
-
-    return payments.map(payment => ({
-      paymentId: payment.transaction_ref || payment.id,
-      transactionRef: payment.transaction_ref,
-      paymentType: payment.payment_type,
-      amount: payment.amount,
-      paymentMethod: payment.payment_method,
-      status: payment.status,
-      createdAt: payment.created_at,
-      updatedAt: payment.updated_at,
-      metadata: typeof payment.payment_data === 'string' ? (JSON.parse(payment.payment_data || '{}') || {}) : (payment.payment_data || {})
-    }));
   }
 
   /**
    * Get all payments (Admin)
    */
   async getAllPayments(filters = {}, limit = 100) {
-    let sql = 'SELECT * FROM payments WHERE 1=1';
-    const params = [];
+    try {
+      let query = supabase.from('payments').select('*');
 
-    if (filters.status) {
-      sql += ' AND status = ?';
-      params.push(filters.status);
+      if (filters.status) {
+        query = query.eq('status', filters.status);
+      }
+
+      if (filters.payment_method) {
+        query = query.eq('payment_method', filters.payment_method);
+      }
+
+      if (filters.payment_type) {
+        query = query.eq('payment_type', filters.payment_type);
+      }
+
+      if (filters.date_from) {
+        query = query.gte('created_at', filters.date_from);
+      }
+
+      if (filters.date_to) {
+        query = query.lte('created_at', filters.date_to);
+      }
+
+      query = query.order('created_at', { ascending: false }).limit(limit);
+
+      const { data: payments, error } = await query;
+
+      if (error) throw error;
+      return payments || [];
+    } catch (error) {
+      console.error('Error fetching all payments:', error);
+      return [];
     }
-
-    if (filters.payment_method) {
-      sql += ' AND payment_method = ?';
-      params.push(filters.payment_method);
-    }
-
-    if (filters.payment_type) {
-      sql += ' AND payment_type = ?';
-      params.push(filters.payment_type);
-    }
-
-    if (filters.date_from) {
-      sql += ' AND created_at >= ?';
-      params.push(filters.date_from);
-    }
-
-    if (filters.date_to) {
-      sql += ' AND created_at <= ?';
-      params.push(filters.date_to);
-    }
-
-    sql += ' ORDER BY created_at DESC LIMIT ?';
-    params.push(limit);
-
-    const payments = await query(sql, params);
-    return payments;
   }
 
   /**
    * Get system earnings (Admin)
    */
   async getSystemEarnings(period = 'month') {
-    let dateFormat;
-    let groupBy;
+    try {
+      // Fetch completed payments
+      const { data: completedPayments, error } = await supabase
+        .from('payments')
+        .select('amount, payment_type, payment_method, created_at')
+        .eq('status', 'completed')
+        .order('created_at', { ascending: false });
 
-    switch (period) {
-      case 'day':
-        dateFormat = '%Y-%m-%d';
-        groupBy = 'DATE(created_at)';
-        break;
-      case 'week':
-        dateFormat = '%Y-%u';
-        groupBy = 'YEARWEEK(created_at)';
-        break;
-      case 'month':
-      default:
-        dateFormat = '%Y-%m';
-        groupBy = 'DATE_FORMAT(created_at, "%Y-%m")';
-        break;
+      if (error) throw error;
+
+      const payments = completedPayments || [];
+
+      // Calculate totals
+      const total_payments = payments.length;
+      const total_amount = payments.reduce((sum, p) => sum + parseFloat(p.amount || 0), 0);
+      const average_amount = total_payments > 0 ? total_amount / total_payments : 0;
+
+      // Group by type and method for breakdown
+      const breakdown = {};
+      payments.forEach(p => {
+        const key = `${p.payment_type}-${p.payment_method}`;
+        if (!breakdown[key]) {
+          breakdown[key] = {
+            payment_type: p.payment_type,
+            payment_method: p.payment_method,
+            total_payments: 0,
+            total_amount: 0
+          };
+        }
+        breakdown[key].total_payments++;
+        breakdown[key].total_amount += parseFloat(p.amount || 0);
+      });
+
+      return {
+        period: period,
+        totals: {
+          total_payments,
+          total_amount,
+          average_amount
+        },
+        breakdown: Object.values(breakdown)
+      };
+    } catch (error) {
+      console.error('Error fetching system earnings:', error);
+      return {
+        period: period,
+        totals: { total_payments: 0, total_amount: 0, average_amount: 0 },
+        breakdown: []
+      };
     }
-
-    const sql = `
-      SELECT
-        ${groupBy} as period,
-        COUNT(*) as total_payments,
-        SUM(amount) as total_amount,
-        payment_type,
-        payment_method
-      FROM payments
-      WHERE status = 'completed'
-      GROUP BY ${groupBy}, payment_type, payment_method
-      ORDER BY period DESC
-    `;
-
-    const earnings = await query(sql);
-
-    // Calculate totals
-    const totals = await query(`
-      SELECT
-        COUNT(*) as total_payments,
-        SUM(amount) as total_amount,
-        AVG(amount) as average_amount
-      FROM payments
-      WHERE status = 'completed'
-    `);
-
-    return {
-      period: period,
-      totals: totals[0],
-      breakdown: earnings
-    };
   }
 
   /**
    * Process withdrawal (Admin)
    */
   async processWithdrawal(amount, bankDetails) {
-    // In production, this would integrate with banking APIs
-    // For demo, we'll just record the withdrawal
+    try {
+      // In production, this would integrate with banking APIs
+      // For demo, we'll just record the withdrawal
 
-    const withdrawalId = `WD-${Date.now()}-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
+      const withdrawalId = `WD-${Date.now()}-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
 
-    await query(`
-      INSERT INTO withdrawals (
-        withdrawal_id, amount, bank_details, status, requested_at
-      ) VALUES (?, ?, ?, 'pending', NOW())
-    `, [withdrawalId, amount, JSON.stringify(bankDetails)]);
+      const { error } = await supabase.from('withdrawals').insert([{
+        withdrawal_id: withdrawalId,
+        amount: amount,
+        bank_details: bankDetails,
+        status: 'pending',
+        requested_at: moment().tz('Africa/Kigali').format('YYYY-MM-DD HH:mm:ss')
+      }]);
 
-    return {
-      success: true,
-      withdrawalId: withdrawalId,
-      message: 'Withdrawal request submitted successfully'
-    };
+      if (error) throw error;
+
+      return {
+        success: true,
+        withdrawalId: withdrawalId,
+        message: 'Withdrawal request submitted successfully'
+      };
+    } catch (error) {
+      console.error('Error processing withdrawal:', error);
+      return {
+        success: false,
+        message: 'Failed to process withdrawal request'
+      };
+    }
   }
 }
 

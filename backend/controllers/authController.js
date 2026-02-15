@@ -34,13 +34,29 @@ exports.register = asyncHandler(async (req, res) => {
   const { username, email, password, role = 'user' } = req.body;
   console.log('🔐 Register attempt:', { email, username });
 
+  // Validate input
+  if (!email || !password) {
+    return res.status(400).json({
+      success: false,
+      message: 'Email and password are required'
+    });
+  }
+
+  if (!username || username.trim().length < 3) {
+    return res.status(400).json({
+      success: false,
+      message: 'Username must be at least 3 characters'
+    });
+  }
+
   try {
     // Check if user exists
     const existingUser = await User.findByEmail(email);
     if (existingUser) {
+      console.log('❌ Signup failed: Email already exists -', email);
       return res.status(409).json({
         success: false,
-        message: 'Email already exists'
+        message: 'Email already registered. Please login or use a different email.'
       });
     }
 
@@ -50,9 +66,10 @@ exports.register = asyncHandler(async (req, res) => {
       existingUsername = await User.findByUsername(username);
     }
     if (existingUsername) {
+      console.log('❌ Signup failed: Username already exists -', username);
       return res.status(409).json({
         success: false,
-        message: 'Username already taken'
+        message: 'Username already taken. Please choose a different username.'
       });
     }
 
@@ -78,7 +95,20 @@ exports.register = asyncHandler(async (req, res) => {
     });
   } catch (err) {
     console.error('❌ Signup error:', err && err.message ? err.message : err);
-    const msg = err && err.message ? err.message : 'Signup failed';
+    
+    // Handle duplicate key errors
+    let msg = err && err.message ? err.message : 'Signup failed';
+    if (msg.includes('duplicate key') || msg.includes('already exists')) {
+      if (msg.includes('user_name') || msg.includes('username')) {
+        msg = 'Username already taken. Please choose a different username.';
+      } else if (msg.includes('email')) {
+        msg = 'Email already registered. Please login or use a different email.';
+      } else {
+        msg = 'This account already exists. Please use different credentials.';
+      }
+      return res.status(409).json({ success: false, message: msg });
+    }
+    
     res.status(500).json({ success: false, message: msg });
   }
 });
@@ -113,15 +143,18 @@ exports.login = asyncHandler(async (req, res) => {
   }
 
   // Verify password
+  console.log('🔑 Verifying password for:', email);
   const isPasswordValid = await User.verifyPassword(password, user.password);
 
   if (!isPasswordValid) {
     console.log('❌ Login failed: invalid password for', email);
     return res.status(401).json({
       success: false,
-      message: 'Invalid credentials'
+      message: 'Invalid email or password. Please check your credentials and try again.'
     });
   }
+
+  console.log('✅ Login successful for:', email);
 
   // Generate token
   const token = generateToken(user, 'user');
@@ -263,58 +296,53 @@ exports.companyLogin = asyncHandler(async (req, res) => {
 
   console.log('🔐 Company login attempt:', email);
 
-  // Query company_managers table directly
-  const db = require('../config/database');
-  const managers = await db.query(
-    'SELECT * FROM company_managers WHERE email = ?',
-    [email]
-  );
+  // Use Supabase CompanyManager model
+  const CompanyManager = require('../models/CompanyManager.supabase');
+  
+  try {
+    const manager = await CompanyManager.findByEmail(email);
 
-  console.log('📊 Query result:', managers.length, 'records found');
+    if (!manager) {
+      console.log('❌ No manager found with email:', email);
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid email or password'
+      });
+    }
 
-  if (!managers || managers.length === 0) {
-    console.log('❌ No manager found with email:', email);
-    return res.status(401).json({
-      success: false,
-      message: 'Invalid email or password'
-    });
-  }
+    console.log('✓ Manager found:', manager.name, '- Status:', manager.status);
 
-  const manager = managers[0];
-  console.log('✓ Manager found:', manager.name, '- Status:', manager.status);
+    // Check if manager is active
+    if (manager.status !== 'active') {
+      console.log('❌ Manager inactive');
+      return res.status(403).json({
+        success: false,
+        message: 'Your account has been deactivated.'
+      });
+    }
 
-  // Check if manager is active
-  if (manager.status !== 'active') {
-    console.log('❌ Manager inactive');
-    return res.status(403).json({
-      success: false,
-      message: 'Your account has been deactivated.'
-    });
-  }
+    // Verify password using model method
+    const isPasswordValid = await CompanyManager.validatePassword(manager, password);
 
-  // Verify password
-  const bcrypt = require('bcryptjs');
-  const isPasswordValid = await bcrypt.compare(password, manager.password);
+    console.log('🔑 Password valid:', isPasswordValid);
 
-  console.log('🔑 Password valid:', isPasswordValid);
+    if (!isPasswordValid) {
+      console.log('❌ Invalid password');
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid email or password'
+      });
+    }
 
-  if (!isPasswordValid) {
-    console.log('❌ Invalid password');
-    return res.status(401).json({
-      success: false,
-      message: 'Invalid email or password'
-    });
-  }
-
-  // Generate token with company_manager role
-  const token = jwt.sign(
-    {
-      id: manager.id,
-      email: manager.email,
-      role: 'company_manager',
-      company_id: manager.company_id,
-      type: 'company_manager'
-    },
+    // Generate token with company_manager role
+    const token = jwt.sign(
+      {
+        id: manager.id,
+        email: manager.email,
+        role: 'company_manager',
+        company_id: manager.company_id,
+        type: 'company_manager'
+      },
     config.jwt.secret,
     { expiresIn: config.jwt.expire }
   );
