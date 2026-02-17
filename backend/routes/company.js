@@ -296,6 +296,20 @@ router.get('/trips', authenticate, async (req, res, next) => {
     const companyId = req.user.company_id || req.user.id;
     const { status, date } = req.query;
     
+    // First get company's route IDs
+    const { data: companyRoutes, error: routeError } = await supabase
+      .from('routes')
+      .select('id')
+      .eq('company_id', companyId);
+    
+    if (routeError) throw routeError;
+    
+    const routeIds = (companyRoutes || []).map(r => r.id);
+    
+    if (routeIds.length === 0) {
+      return res.json({ success: true, data: [] });
+    }
+    
     // Use Supabase directly to get trips with all related data
     let query = supabase
       .from('trips')
@@ -305,7 +319,7 @@ router.get('/trips', authenticate, async (req, res, next) => {
         car:cars(id, plate_number, name, type, capacity, total_seats),
         driver:drivers(id, name, phone, license_number)
       `)
-      .eq('company_id', companyId)
+      .in('route_id', routeIds)
       .order('trip_date', { ascending: true })
       .order('departure_time', { ascending: true });
     

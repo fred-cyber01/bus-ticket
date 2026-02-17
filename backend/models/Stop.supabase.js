@@ -21,6 +21,19 @@ class StopSupabase {
     return data;
   }
 
+  static async findByRoute(routeId) {
+    const supabase = require('../config/supabase');
+    // Get stops for a specific route through route_stops junction table
+    const { data, error } = await supabase
+      .from('route_stops')
+      .select('stop:stops(*), position')
+      .eq('route_id', routeId)
+      .order('position', { ascending: true });
+    
+    if (error) throw error;
+    return (data || []).map(rs => rs.stop).filter(Boolean);
+  }
+
   static async findOrCreateByName(name) {
     if (!name || typeof name !== 'string') {
       throw new Error('Stop name must be a valid string');

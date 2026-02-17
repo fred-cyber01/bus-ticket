@@ -12,7 +12,7 @@ exports.getStops = async (req, res, next) => {
     if (route_id) {
       stops = await Stop.findByRoute(route_id);
     } else {
-      stops = await Stop.findAll();
+      stops = await Stop.listAll();
     }
     
     res.status(200).json({
