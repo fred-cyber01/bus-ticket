@@ -111,8 +111,12 @@ const SeatSelection = ({ trip, onBack, onBookingComplete }) => {
     try {
       setBookingLoading(true);
 
+      if (!trip || !trip.id) {
+        throw new Error('Invalid trip data - missing trip ID');
+      }
+
       const bookingData = {
-        tripId: trip.id.toString(),
+        tripId: String(trip.id),
         seatNumbers: selectedSeats.map(seat => seat.toString()),
         passengerDetails: passengerDetails
       };

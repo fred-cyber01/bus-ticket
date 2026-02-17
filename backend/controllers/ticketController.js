@@ -34,9 +34,18 @@ exports.createBooking = asyncHandler(async (req, res) => {
     });
   }
 
-  // Get trip details
-  const trip = await Trip.findById(numericTripId);
-  if (!trip) {
+  // Get trip details with car info for total_seats
+  const supabase = require('../config/supabase');
+  const { data: trip, error: tripError } = await supabase
+    .from('trips')
+    .select(`
+      *,
+      car:cars(total_seats, capacity)
+    `)
+    .eq('id', numericTripId)
+    .single();
+  
+  if (tripError || !trip) {
     return res.status(404).json({
       success: false,
       message: 'Trip not found'
@@ -60,20 +69,23 @@ exports.createBooking = asyncHandler(async (req, res) => {
   // Validate all seat numbers
   for (const seatNum of seatNumbers) {
     const seat = parseInt(seatNum);
-    if (seat < 1 || seat > trip.capacity) {
+    const maxSeats = trip.total_seats || trip.car?.total_seats || trip.car?.capacity || 50; // Fallback chain
+    if (seat < 1 || seat > maxSeats) {
       return res.status(400).json({
         success: false,
-        message: `Invalid seat number: ${seatNum}`
+        message: `Invalid seat number: ${seatNum}. Must be between 1 and ${maxSeats}`
       });
     }
 
     // Check if seat is already booked
-    const seatCheck = await query(
-      'SELECT id FROM tickets WHERE trip_id = ? AND seat_number = ? AND ticket_status IN ("booked", "confirmed", "on_board")',
-      [numericTripId, seat]
-    );
+    const { data: seatCheck } = await supabase
+      .from('tickets')
+      .select('id')
+      .eq('trip_id', numericTripId)
+      .eq('seat_number', seat)
+      .in('ticket_status', ['booked', 'confirmed', 'on_board']);
 
-    if (seatCheck.length > 0) {
+    if (seatCheck && seatCheck.length > 0) {
       return res.status(409).json({
         success: false,
         message: `Seat ${seatNum} already booked`
@@ -96,8 +108,11 @@ exports.createBooking = asyncHandler(async (req, res) => {
   const ticketsWithQR = [];
 
   // Get user details for ticket
-  const userResult = await query('SELECT user_name, email, phone FROM users WHERE id = ?', [userId]);
-  const userDetails = userResult[0] || {};
+  const { data: userDetails } = await supabase
+    .from('users')
+    .select('user_name, email, phone')
+    .eq('id', userId)
+    .single();
 
   for (const passenger of passengerDetails) {
     // Determine ticket pricing

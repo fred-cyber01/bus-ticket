@@ -173,11 +173,11 @@ const Trips = () => {
   const [passengerForm, setPassengerForm] = useState([]);
 
   const openSeatSelector = (trip) => {
-    if (!trip.tripId) {
+    if (!trip.id) {
       alert('Invalid trip data');
       return;
     }
-    if ((trip.availableSeats || 0) <= 0) {
+    if ((trip.available_seats || 0) <= 0) {
       alert('No seats available for this trip');
       return;
     }
