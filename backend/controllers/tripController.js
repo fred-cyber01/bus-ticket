@@ -7,12 +7,90 @@ const Trip = require('../models/Trip');
 exports.getAvailableTrips = async (req, res, next) => {
   try {
     const { date } = req.query;
-    const trips = await Trip.getAvailableTrips(date);
+    const supabase = require('../config/supabase');
+    
+    // Build query with joins for complete trip information
+    let query = supabase
+      .from('trips')
+      .select(`
+        *,
+        route:routes(
+          id, name, distance, base_price,
+          origin_stop:stops!routes_origin_stop_id_fkey(id, name, location),
+          destination_stop:stops!routes_destination_stop_id_fkey(id, name, location)
+        ),
+        car:cars(id, plate_number, name, type, capacity, total_seats),
+        driver:drivers(id, name, phone),
+        company:companies(id, company_name, phone, email)
+      `)
+      .eq('is_active', true)
+      .gt('available_seats', 0)
+      .gte('trip_date', new Date().toISOString().split('T')[0])
+      .order('trip_date', { ascending: true })
+      .order('departure_time', { ascending: true });
+    
+    // Filter by date if provided
+    if (date) {
+      query = query.eq('trip_date', date);
+    }
+    
+    const { data: trips, error } = await query;
+    
+    if (error) {
+      console.error('Error fetching available trips:', error);
+      throw error;
+    }
+    
+    // Format the response with readable field names
+    const formattedTrips = (trips || []).map(trip => {
+      const departureTime = trip.departure_time || trip.trip_date;
+      const timeOnly = departureTime ? new Date(departureTime).toLocaleTimeString('en-US', { 
+        hour: '2-digit', 
+        minute: '2-digit', 
+        hour12: false 
+      }) : 'N/A';
+      
+      return {
+        ...trip,
+        // Route information
+        route_name: trip.route?.name || `${trip.route?.origin_stop?.name || 'Unknown'} to ${trip.route?.destination_stop?.name || 'Unknown'}`,
+        origin: trip.route?.origin_stop?.name || 'Unknown',
+        destination: trip.route?.destination_stop?.name || 'Unknown',
+        origin_location: trip.route?.origin_stop?.location,
+        destination_location: trip.route?.destination_stop?.location,
+        distance: trip.route?.distance || 0,
+        
+        // Bus information
+        plate_number: trip.car?.plate_number || 'N/A',
+        bus_name: trip.car?.name,
+        bus_type: trip.car?.type || 'Standard Bus',
+        
+        // Driver information
+        driver_name: trip.driver?.name || 'TBA',
+        driver_phone: trip.driver?.phone,
+        
+        // Company information
+        company_name: trip.company?.company_name,
+        company_phone: trip.company?.phone,
+        company_email: trip.company?.email,
+        
+        // Time and pricing
+        departure_time: timeOnly,
+        departure_datetime: trip.departure_time || trip.trip_date,
+        price: trip.price || trip.route?.base_price || 0,
+        fare: trip.price || trip.route?.base_price || 0,
+        
+        // Seat information
+        total_seats: trip.total_seats || trip.car?.total_seats || trip.car?.capacity || 30,
+        available_seats: trip.available_seats || 0,
+        occupied_seats: trip.occupied_seats || 0
+      };
+    });
     
     res.status(200).json({
       success: true,
-      count: trips.length,
-      data: trips,
+      count: formattedTrips.length,
+      data: formattedTrips,
     });
   } catch (error) {
     next(error);
@@ -25,32 +103,101 @@ exports.getAvailableTrips = async (req, res, next) => {
 exports.getTrips = async (req, res, next) => {
   try {
     const { origin, destination, date } = req.query;
-    
-    const filters = {};
-    if (origin) filters.origin = origin;
-    if (destination) filters.destination = destination;
-    if (date) filters.date = date;
+    const supabase = require('../config/supabase');
     
     const userType = String(req.user?.type || req.user?.role || '').toLowerCase();
-    const approvedOnly = userType === 'customer' || userType === '';
-
-    let trips;
-    if (typeof Trip.findAllWithFilters === 'function') {
-      trips = await Trip.findAllWithFilters(filters, { approvedOnly });
-    } else if (typeof Trip.findAll === 'function') {
-      console.warn('Trip.findAllWithFilters missing, falling back to Trip.findAll');
-      trips = await Trip.findAll(filters);
-      if (approvedOnly) {
-        trips = trips.filter(t => t.status === 'approved' || t.is_active === 1 || t.is_active === true);
-      }
-    } else {
-      console.error('Trip model missing required finder methods');
-      return res.status(500).json({ success: false, message: 'Server misconfiguration: trip search not available' });
+    const isCustomer = userType === 'customer' || userType === 'user' || userType === '';
+    
+    // Build query with comprehensive joins
+    let query = supabase
+      .from('trips')
+      .select(`
+        *,
+        route:routes(
+          id, name, distance, base_price,
+          origin_stop:stops!routes_origin_stop_id_fkey(id, name, location),
+          destination_stop:stops!routes_destination_stop_id_fkey(id, name, location)
+        ),
+        car:cars(id, plate_number, name, type, capacity, total_seats),
+        driver:drivers(id, name, phone),
+        company:companies(id, company_name, phone, email)
+      `)
+      .gte('trip_date', new Date().toISOString().split('T')[0])
+      .order('trip_date', { ascending: true })
+      .order('departure_time', { ascending: true });
+    
+    // customers only see active trips with available seats
+    if (isCustomer) {
+      query = query.eq('is_active', true).gt('available_seats', 0);
     }
+    
+    // Filter by date if provided
+    if (date) {
+      query = query.eq('trip_date', date);
+    }
+    
+    const { data: trips, error } = await query;
+    
+    if (error) {
+      console.error('Error fetching trips:', error);
+      throw error;
+    }
+    
+    // Apply origin/destination filters if provided
+    let filteredTrips = trips || [];
+    
+    if (origin) {
+      const originLower = origin.toLowerCase();
+      filteredTrips = filteredTrips.filter(t => 
+        t.route?.origin_stop?.name?.toLowerCase().includes(originLower)
+      );
+    }
+    
+    if (destination) {
+      const destLower = destination.toLowerCase();
+      filteredTrips = filteredTrips.filter(t => 
+        t.route?.destination_stop?.name?.toLowerCase().includes(destLower)
+      );
+    }
+    
+    // Format the response
+    const formattedTrips = filteredTrips.map(trip => {
+      const departureTime = trip.departure_time || trip.trip_date;
+      const timeOnly = departureTime ? new Date(departureTime).toLocaleTimeString('en-US', { 
+        hour: '2-digit', 
+        minute: '2-digit', 
+        hour12: false 
+      }) : 'N/A';
+      
+      return {
+        ...trip,
+        route_name: trip.route?.name || `${trip.route?.origin_stop?.name || 'Unknown'} to ${trip.route?.destination_stop?.name || 'Unknown'}`,
+        origin: trip.route?.origin_stop?.name || 'Unknown',
+        destination: trip.route?.destination_stop?.name || 'Unknown',
+        origin_location: trip.route?.origin_stop?.location,
+        destination_location: trip.route?.destination_stop?.location,
+        distance: trip.route?.distance || 0,
+        plate_number: trip.car?.plate_number || 'N/A',
+        bus_name: trip.car?.name,
+        bus_type: trip.car?.type || 'Standard Bus',
+        driver_name: trip.driver?.name || 'TBA',
+        driver_phone: trip.driver?.phone,
+        company_name: trip.company?.company_name,
+        company_phone: trip.company?.phone,
+        company_email: trip.company?.email,
+        departure_time: timeOnly,
+        departure_datetime: trip.departure_time || trip.trip_date,
+        price: trip.price || trip.route?.base_price || 0,
+        fare: trip.price || trip.route?.base_price || 0,
+        total_seats: trip.total_seats || trip.car?.total_seats || trip.car?.capacity || 30,
+        available_seats: trip.available_seats || 0,
+        occupied_seats: trip.occupied_seats || 0
+      };
+    });
     
     res.status(200).json({
       success: true,
-      data: trips,
+      data: formattedTrips,
     });
   } catch (error) {
     next(error);

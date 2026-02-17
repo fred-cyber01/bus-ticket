@@ -26,13 +26,13 @@ const SeatSelection = ({ trip, onBack, onBookingComplete }) => {
     try {
       setLoading(true);
       // Get occupied seats for this trip
-      const response = await api.getTripTickets(trip.tripId);
+      const response = await api.getTripTickets(trip.id);
       // response expected to be { success: true, data: [bookings...] }
       const bookings = (response && response.data) || [];
       // Each booking may include tickets array or a seat_number property
       const occupied = [];
       bookings.forEach((b) => {
-        if (b.trip_id == trip.tripId || b.tripId == trip.tripId || (b.tickets && b.tickets.some)) {
+        if (b.trip_id == trip.id || b.tripId == trip.id || (b.tickets && b.tickets.some)) {
           if (Array.isArray(b.tickets)) {
             b.tickets.forEach((t) => {
               if (t.seat_number) occupied.push(t.seat_number);
@@ -52,7 +52,7 @@ const SeatSelection = ({ trip, onBack, onBookingComplete }) => {
     }
   };
 
-  const totalSeats = trip.totalSeats || 50; // Default to 50 if not specified
+  const totalSeats = trip.total_seats || 50; // Default to 50 if not specified
   const availableSeats = Array.from({ length: totalSeats }, (_, i) => i + 1)
     .filter(seat => !occupiedSeats.includes(seat));
 
@@ -112,7 +112,7 @@ const SeatSelection = ({ trip, onBack, onBookingComplete }) => {
       setBookingLoading(true);
 
       const bookingData = {
-        tripId: trip.tripId.toString(),
+        tripId: trip.id.toString(),
         seatNumbers: selectedSeats.map(seat => seat.toString()),
         passengerDetails: passengerDetails
       };

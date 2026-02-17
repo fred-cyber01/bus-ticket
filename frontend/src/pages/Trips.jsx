@@ -67,7 +67,7 @@ const Trips = () => {
       const response = await api.getTrips(filterParams);
       // Show only trips with available seats > 0
       const all = response.data || [];
-      const availableOnly = all.filter(t => (t.availableSeats || 0) > 0);
+      const availableOnly = all.filter(t => (t.available_seats || 0) > 0);
       setTrips(availableOnly);
       setError('');
     } catch (err) {
@@ -320,23 +320,23 @@ const Trips = () => {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {currentTrips.map((trip) => (
-              <div key={trip.tripId} className="bg-white rounded-2xl p-4 sm:p-5 shadow-sm">
+              <div key={trip.id} className="bg-white rounded-2xl p-4 sm:p-5 shadow-sm">
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
                   <div className="flex-1 min-w-0">
-                    <div className="text-sm text-slate-500 truncate">{trip.companyName}</div>
+                    <div className="text-sm text-slate-500 truncate">{trip.company_name || 'N/A'}</div>
                     <div className="text-lg font-semibold text-slate-800 truncate">{trip.origin} → {trip.destination}</div>
-                    <div className="text-sm text-slate-500">{formatDate(trip.departureTime)}{trip.arrivalTime ? ` • ${formatDate(trip.arrivalTime)}` : ''}</div>
+                    <div className="text-sm text-slate-500">{formatDate(trip.departure_datetime || trip.trip_date)}</div>
                   </div>
                   <div className="text-right">
                     <div className="text-lg font-bold">{trip.price ? `${trip.price} RWF` : '—'}</div>
-                    <div className="text-sm text-slate-500">Seats: <span className="font-medium">{trip.availableSeats}/{trip.totalSeats}</span></div>
-                    <button onClick={() => openSeatSelector(trip)} disabled={trip.availableSeats <= 0} className={`mt-3 sm:mt-2 w-full sm:w-auto rounded-lg px-4 py-2 text-white ${trip.availableSeats > 0 ? 'bg-gradient-to-r from-blue-600 to-purple-600' : 'bg-gray-300 cursor-not-allowed'}`}>{trip.availableSeats > 0 ? 'Book Now' : 'Sold Out'}</button>
-                    {isAdmin() && (<div className="mt-2 sm:mt-1"><button onClick={() => handleCancelTrip(trip.tripId)} className="rounded-lg px-4 py-2 border border-red-300 text-red-600">Cancel</button></div>)}
+                    <div className="text-sm text-slate-500">Seats: <span className="font-medium">{trip.available_seats}/{trip.total_seats}</span></div>
+                    <button onClick={() => openSeatSelector(trip)} disabled={trip.available_seats <= 0} className={`mt-3 sm:mt-2 w-full sm:w-auto rounded-lg px-4 py-2 text-white ${trip.available_seats > 0 ? 'bg-gradient-to-r from-blue-600 to-purple-600' : 'bg-gray-300 cursor-not-allowed'}`}>{trip.available_seats > 0 ? 'Book Now' : 'Sold Out'}</button>
+                    {isAdmin() && (<div className="mt-2 sm:mt-1"><button onClick={() => handleCancelTrip(trip.id)} className="rounded-lg px-4 py-2 border border-red-300 text-red-600">Cancel</button></div>)}
                   </div>
                 </div>
 
-                {trip.availableSeatNumbers && trip.availableSeatNumbers.length > 0 && (
-                  <div className="mt-3 text-sm text-slate-600">Available seats: {trip.availableSeatNumbers.slice(0,10).join(', ')}{trip.availableSeatNumbers.length > 10 ? '...' : ''}</div>
+                {trip.available_seat_numbers && trip.available_seat_numbers.length > 0 && (
+                  <div className="mt-3 text-sm text-slate-600">Available seats: {trip.available_seat_numbers.slice(0,10).join(', ')}{trip.available_seat_numbers.length > 10 ? '...' : ''}</div>
                 )}
               </div>
             ))}
