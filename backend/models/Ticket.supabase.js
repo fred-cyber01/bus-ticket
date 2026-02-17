@@ -29,6 +29,25 @@ class TicketSupabase {
     return data || [];
   }
 
+  static async findByCompany(companyId, options = {}) {
+    const supabase = require('../config/supabase');
+    let q = supabase.from('tickets').select('*').eq('company_id', companyId).order('created_at', { ascending: false });
+    
+    if (options.status) {
+      q = q.eq('ticket_status', options.status);
+    }
+    if (options.startDate) {
+      q = q.gte('created_at', options.startDate);
+    }
+    if (options.endDate) {
+      q = q.lte('created_at', options.endDate);
+    }
+    
+    const { data, error } = await q;
+    if (error) throw error;
+    return data || [];
+  }
+
   static async getTripTickets(tripId) {
     const supabase = require('../config/supabase');
     const { data, error } = await supabase.from('tickets').select('*').eq('trip_id', tripId).order('seat_number', { ascending: true });

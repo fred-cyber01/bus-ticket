@@ -74,6 +74,61 @@ class CompanySupabase {
     if (error) throw error;
     return data;
   }
+
+  static async getBusCount(companyId) {
+    const supabase = require('../config/supabase');
+    const { count, error } = await supabase.from('cars').select('id', { count: 'exact', head: true }).eq('company_id', companyId);
+    if (error) throw error;
+    return count || 0;
+  }
+
+  static async getDriverCount(companyId) {
+    const supabase = require('../config/supabase');
+    const { count, error } = await supabase.from('drivers').select('id', { count: 'exact', head: true }).eq('company_id', companyId);
+    if (error) throw error;
+    return count || 0;
+  }
+
+  static async getRouteCount(companyId) {
+    const supabase = require('../config/supabase');
+    const { count, error } = await supabase.from('routes').select('id', { count: 'exact', head: true }).eq('company_id', companyId);
+    if (error) throw error;
+    return count || 0;
+  }
+
+  static async getCompanyStats(companyId) {
+    const supabase = require('../config/supabase');
+    
+    // Get trip count
+    const { count: tripCount, error: tripError } = await supabase
+      .from('trips')
+      .select('id', { count: 'exact', head: true })
+      .eq('company_id', companyId);
+    if (tripError) throw tripError;
+
+    // Get booking count
+    const { count: bookingCount, error: bookingError } = await supabase
+      .from('tickets')
+      .select('id', { count: 'exact', head: true })
+      .eq('company_id', companyId);
+    if (bookingError) throw bookingError;
+
+    // Get revenue (sum of ticket prices where payment is completed)
+    const { data: revenueData, error: revenueError } = await supabase
+      .from('tickets')
+      .select('ticket_price')
+      .eq('company_id', companyId)
+      .eq('payment_status', 'completed');
+    if (revenueError) throw revenueError;
+
+    const revenue = (revenueData || []).reduce((sum, ticket) => sum + (parseFloat(ticket.ticket_price) || 0), 0);
+
+    return {
+      trips: tripCount || 0,
+      bookings: bookingCount || 0,
+      revenue: revenue
+    };
+  }
 }
 
 module.exports = CompanySupabase;

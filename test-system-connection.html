@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>System Connection Test</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 900px;
+            margin: 50px auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        .container {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+        }
+        .test-section h3 {
+            margin-top: 0;
+            color: #667eea;
+        }
+        button {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 5px;
+            transition: background 0.3s;
+        }
+        button:hover {
+            background: #5568d3;
+        }
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        .result {
+            margin-top: 15px;
+            padding: 15px;
+            border-radius: 6px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        .success {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+        .error {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+        .info {
+            background: #d1ecf1;
+            border: 1px solid #bee5eb;
+            color: #0c5460;
+        }
+        .loading {
+            text-align: center;
+            color: #667eea;
+            font-weight: bold;
+        }
+        .config-box {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 6px;
+            margin: 10px 0;
+        }
+        .config-box code {
+            color: #d63384;
+        }
+        .status-badge {
+            display: inline-block;
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: bold;
+            margin-left: 10px;
+        }
+        .badge-success {
+            background: #28a745;
+            color: white;
+        }
+        .badge-error {
+            background: #dc3545;
+            color: white;
+        }
+        .badge-warning {
+            background: #ffc107;
+            color: #333;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚌 Bus Ticket System - Connection Test</h1>
+        
+        <div class="config-box">
+            <strong>🔧 Current Configuration:</strong><br>
+            <strong>Backend:</strong> <code id="backend-url">https://bus-ticket-c8ld.onrender.com</code><br>
+            <strong>Frontend:</strong> <code id="frontend-url">https://bus-ticket-theta.vercel.app</code><br>
+            <strong>Database:</strong> <code>Supabase (PostgreSQL)</code>
+        </div>
+
+        <!-- Test 1: Backend Health -->
+        <div class="test-section">
+            <h3>
+                1️⃣ Backend Health Check
+                <span class="status-badge badge-warning" id="status-health">PENDING</span>
+            </h3>
+            <p>Tests if the backend server is running and responding.</p>
+            <button onclick="testBackendHealth()">Test Backend Health</button>
+            <div id="result-health"></div>
+        </div>
+
+        <!-- Test 2: Database Connection -->
+        <div class="test-section">
+            <h3>
+                2️⃣ Database Connection
+                <span class="status-badge badge-warning" id="status-db">PENDING</span>
+            </h3>
+            <p>Tests if backend can connect to Supabase database.</p>
+            <button onclick="testDatabaseConnection()">Test Database</button>
+            <div id="result-db"></div>
+        </div>
+
+        <!-- Test 3: CORS Configuration -->
+        <div class="test-section">
+            <h3>
+                3️⃣ CORS Configuration
+                <span class="status-badge badge-warning" id="status-cors">PENDING</span>
+            </h3>
+            <p>Tests if frontend can make API calls to backend (cross-origin requests).</p>
+            <button onclick="testCORS()">Test CORS</button>
+            <div id="result-cors"></div>
+        </div>
+
+        <!-- Test 4: Authentication -->
+        <div class="test-section">
+            <h3>
+                4️⃣ Authentication System
+                <span class="status-badge badge-warning" id="status-auth">PENDING</span>
+            </h3>
+            <p>Tests if user login works (customer account).</p>
+            <button onclick="testAuthentication()">Test Login</button>
+            <div id="result-auth"></div>
+        </div>
+
+        <!-- Test 5: API Endpoints -->
+        <div class="test-section">
+            <h3>
+                5️⃣ API Endpoints (Get Trips)
+                <span class="status-badge badge-warning" id="status-api">PENDING</span>
+            </h3>
+            <p>Tests if the trips API endpoint returns data.</p>
+            <button onclick="testAPIEndpoints()">Test API</button>
+            <div id="result-api"></div>
+        </div>
+
+        <!-- Test All -->
+        <div class="test-section" style="background: #f0f0f0; text-align: center;">
+            <h3>🚀 Run All Tests</h3>
+            <button onclick="runAllTests()" style="background: #28a745; font-size: 18px; padding: 15px 30px;">
+                Run Complete System Test
+            </button>
+            <div id="result-all"></div>
+        </div>
+    </div>
+
+    <script>
+        const BACKEND_URL = 'https://bus-ticket-c8ld.onrender.com';
+
+        function showLoading(elementId) {
+            document.getElementById(elementId).innerHTML = '<div class="result loading">⏳ Testing...</div>';
+        }
+
+        function showSuccess(elementId, message, data = null) {
+            const badge = document.getElementById('status-' + elementId.replace('result-', ''));
+            if (badge) {
+                badge.textContent = '✅ PASS';
+                badge.className = 'status-badge badge-success';
+            }
+            let html = `<div class="result success">✅ Success!\n\n${message}`;
+            if (data) {
+                html += `\n\nResponse:\n${JSON.stringify(data, null, 2)}`;
+            }
+            html += '</div>';
+            document.getElementById(elementId).innerHTML = html;
+        }
+
+        function showError(elementId, message, error = null) {
+            const badge = document.getElementById('status-' + elementId.replace('result-', ''));
+            if (badge) {
+                badge.textContent = '❌ FAIL';
+                badge.className = 'status-badge badge-error';
+            }
+            let html = `<div class="result error">❌ Error!\n\n${message}`;
+            if (error) {
+                html += `\n\nDetails:\n${error}`;
+            }
+            html += '</div>';
+            document.getElementById(elementId).innerHTML = html;
+        }
+
+        async function testBackendHealth() {
+            showLoading('result-health');
+            try {
+                const response = await fetch(`${BACKEND_URL}/health`);
+                const data = await response.json();
+                
+                if (data.success) {
+                    showSuccess('result-health', 
+                        `Backend is running!\n` +
+                        `Environment: ${data.environment}\n` +
+                        `Timestamp: ${data.timestamp}`,
+                        data
+                    );
+                } else {
+                    showError('result-health', 'Backend responded but not successful', JSON.stringify(data, null, 2));
+                }
+            } catch (error) {
+                showError('result-health', 
+                    'Cannot connect to backend!\n\n' +
+                    'Possible causes:\n' +
+                    '• Backend server is down\n' +
+                    '• Wrong backend URL\n' +
+                    '• Network issues',
+                    error.message
+                );
+            }
+        }
+
+        async function testDatabaseConnection() {
+            showLoading('result-db');
+            try {
+                // Try to fetch trips which requires database connection
+                const response = await fetch(`${BACKEND_URL}/api/trips`);
+                const data = await response.json();
+                
+                if (response.ok) {
+                    showSuccess('result-db', 
+                        'Database connected successfully!\n' +
+                        `Found ${data.data ? data.data.length : 0} trips in database`,
+                        { database: 'Supabase', status: 'Connected' }
+                    );
+                } else {
+                    showError('result-db', 'Database connection issue', JSON.stringify(data, null, 2));
+                }
+            } catch (error) {
+                showError('result-db', 
+                    'Database connection failed!\n\n' +
+                    'Check:\n' +
+                    '• SUPABASE_URL is set correctly\n' +
+                    '• SUPABASE_SERVICE_ROLE_KEY is valid\n' +
+                    '• Supabase project is active',
+                    error.message
+                );
+            }
+        }
+
+        async function testCORS() {
+            showLoading('result-cors');
+            try {
+                const response = await fetch(`${BACKEND_URL}/health`, {
+                    method: 'GET',
+                    headers: {
+                        'Origin': window.location.origin
+                    }
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    showSuccess('result-cors', 
+                        'CORS is configured correctly!\n' +
+                        'Frontend can communicate with backend ✅\n\n' +
+                        `Current origin: ${window.location.origin}\n` +
+                        'Cross-origin requests: ALLOWED',
+                        { cors: 'Enabled', origin: window.location.origin }
+                    );
+                } else {
+                    showError('result-cors', 'CORS might be misconfigured');
+                }
+            } catch (error) {
+                showError('result-cors', 
+                    'CORS Error!\n\n' +
+                    'Backend must include your frontend URL in CORS_ORIGINS:\n' +
+                    `${window.location.origin}\n\n` +
+                    'On Render, set environment variable:\n' +
+                    `CORS_ORIGINS=https://bus-ticket-theta.vercel.app`,
+                    error.message
+                );
+            }
+        }
+
+        async function testAuthentication() {
+            showLoading('result-auth');
+            try {
+                const response = await fetch(`${BACKEND_URL}/api/auth/signin`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        email: 'customer@example.com',
+                        password: 'customer123'
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    showSuccess('result-auth', 
+                        'Login successful!\n' +
+                        `User: ${data.data.user.email}\n` +
+                        `Token: ${data.data.token.substring(0, 20)}...\n\n` +
+                        'Authentication system working ✅',
+                        { authenticated: true, user: data.data.user }
+                    );
+                } else {
+                    showError('result-auth', 
+                        'Login failed!\n\n' +
+                        'Test account might not exist.\n' +
+                        'Run on backend: node scripts/create-test-accounts.js',
+                        data.message
+                    );
+                }
+            } catch (error) {
+                showError('result-auth', 
+                    'Authentication test failed!',
+                    error.message
+                );
+            }
+        }
+
+        async function testAPIEndpoints() {
+            showLoading('result-api');
+            try {
+                const response = await fetch(`${BACKEND_URL}/api/trips`);
+                const data = await response.json();
+                
+                if (response.ok) {
+                    const trips = data.data || data;
+                    showSuccess('result-api', 
+                        'API endpoint working!\n' +
+                        `Total trips: ${Array.isArray(trips) ? trips.length : 0}\n\n` +
+                        'Backend API is functional ✅',
+                        { endpoint: '/api/trips', trips: trips.length }
+                    );
+                } else {
+                    showError('result-api', 'API endpoint error', JSON.stringify(data, null, 2));
+                }
+            } catch (error) {
+                showError('result-api', 
+                    'API endpoint failed!',
+                    error.message
+                );
+            }
+        }
+
+        async function runAllTests() {
+            const resultDiv = document.getElementById('result-all');
+            resultDiv.innerHTML = '<div class="result loading">⏳ Running all tests...</div>';
+            
+            await testBackendHealth();
+            await new Promise(resolve => setTimeout(resolve, 500));
+            
+            await testDatabaseConnection();
+            await new Promise(resolve => setTimeout(resolve, 500));
+            
+            await testCORS();
+            await new Promise(resolve => setTimeout(resolve, 500));
+            
+            await testAuthentication();
+            await new Promise(resolve => setTimeout(resolve, 500));
+            
+            await testAPIEndpoints();
+            
+            // Check results
+            const badges = document.querySelectorAll('.status-badge');
+            let allPass = true;
+            badges.forEach(badge => {
+                if (badge.textContent.includes('FAIL') || badge.textContent.includes('PENDING')) {
+                    allPass = false;
+                }
+            });
+            
+            if (allPass) {
+                resultDiv.innerHTML = `
+                    <div class="result success">
+                        🎉 ALL TESTS PASSED! 🎉\n\n
+                        Your system is fully connected:\n
+                        ✅ Backend is running\n
+                        ✅ Database is connected\n
+                        ✅ CORS is configured\n
+                        ✅ Authentication works\n
+                        ✅ API endpoints functional\n\n
+                        🚀 System is ready for use!\n
+                        Go to: https://bus-ticket-theta.vercel.app
+                    </div>
+                `;
+            } else {
+                resultDiv.innerHTML = `
+                    <div class="result error">
+                        ⚠️ Some tests failed!\n\n
+                        Please check the failed tests above and:\n
+                        1. Verify environment variables on Render/Vercel\n
+                        2. Check deployment logs\n
+                        3. Ensure test accounts exist\n\n
+                        See PRODUCTION_DEPLOYMENT_VERIFICATION.md for help
+                    </div>
+                `;
+            }
+        }
+
+        // Auto-run all tests on page load
+        window.addEventListener('load', () => {
+            setTimeout(runAllTests, 1000);
+        });
+    </script>
+</body>
+</html>

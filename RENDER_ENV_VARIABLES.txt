@@ -1,0 +1,96 @@
+# Environment Variables for Render.com Backend Deployment
+
+# ============================================
+# CRITICAL - MUST SET THESE ON RENDER
+# ============================================
+
+NODE_ENV=production
+PORT=3000
+
+# ============================================
+# SUPABASE DATABASE (REQUIRED)
+# ============================================
+SUPABASE_URL=https://gbeoqupuwleygrtjkiss.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdiZW9xdXB1d2xleWdydGpraXNzIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2OTg3Njk2MCwiZXhwIjoyMDg1NDUyOTYwfQ.PJAInZatsR18Up6j2rWc2FKh-WEDG9Whw0eWryaByoc
+SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdiZW9xdXB1d2xleWdydGpraXNzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk4NzY5NjAsImV4cCI6MjA4NTQ1Mjk2MH0.F1v5_s59GiT9vnxEUiwhtzBIuDMBxR5EDJJkGDKeWXo
+
+# ============================================
+# JWT SECURITY (REQUIRED)
+# ============================================
+JWT_SECRET=83c1c7e4d9b17d3f607a829f4bf918a946c7d4c8590f3ed21baf0d86f732abf1
+JWT_EXPIRE=7d
+JWT_REFRESH_SECRET=your-refresh-token-secret-key-change-this-in-production
+JWT_REFRESH_EXPIRE=30d
+
+# ============================================
+# CORS (REQUIRED) - Allow Frontend Access
+# ============================================
+CORS_ORIGINS=https://bus-ticket-theta.vercel.app,https://bus-ticket-c8ld.onrender.com,http://localhost:5173
+
+# ============================================
+# APP CONFIGURATION (REQUIRED)
+# ============================================
+APP_NAME=Elite Bus Ticketing
+APP_URL=https://bus-ticket-c8ld.onrender.com
+FRONTEND_URL=https://bus-ticket-theta.vercel.app
+
+# ============================================
+# TIMEZONE
+# ============================================
+TZ=Africa/Kigali
+
+# ============================================
+# ADMIN DEFAULT CREDENTIALS (First Setup)
+# ============================================
+DEFAULT_ADMIN_EMAIL=admin@ticketbus.rw
+DEFAULT_ADMIN_PASSWORD=admin123
+DEFAULT_ADMIN_NAME=System Administrator
+
+# ============================================
+# PAYMENT CONFIGURATION (Optional but Recommended)
+# ============================================
+
+# MTN Mobile Money
+MTN_MOMO_API_URL=https://sandbox.momodeveloper.mtn.com
+MTN_SUBSCRIPTION_KEY=f4efe2896cb94998a0acb0d52f0cbe5e
+MTN_API_USER=c8a8f5d1-9a1b-4d27-8b5d-6a1234567890
+MTN_API_KEY=969e53cb50604a33be16939bbb1d05b4
+MTN_TARGET_ENV=sandbox
+MTN_CALLBACK_URL=https://bus-ticket-c8ld.onrender.com/api/webhooks/mtn
+
+# Flutterwave
+FLW_PUBLIC_KEY=FLWPUBK_TEST-SANDBOXDEMOKEY12345-X
+FLW_SECRET_KEY=FLWSECK_TEST-SANDBOXDEMOKEY12345-X
+FLW_WEBHOOK_SECRET=FLWSECK_TEST_WEBHOOK123
+FLW_BASE_URL=https://api.flutterwave.com/v3
+
+# ============================================
+# EMAIL CONFIGURATION (Optional)
+# ============================================
+EMAIL_HOST=smtp.gmail.com
+EMAIL_PORT=587
+EMAIL_USER=your-email@gmail.com
+EMAIL_PASSWORD=your-app-password
+EMAIL_FROM=noreply@ticketbooking.rw
+
+# Brevo Email
+BREVO_SENDER_EMAIL=fredtuyishime87@gmail.com
+BREVO_SENDER_NAME=bus-ticket
+
+# ============================================
+# RATE LIMITING
+# ============================================
+RATE_LIMIT_WINDOW=15
+RATE_LIMIT_MAX_REQUESTS=100
+
+# ============================================
+# FILE UPLOAD
+# ============================================
+MAX_FILE_SIZE=5242880
+UPLOAD_PATH=./uploads
+
+# ============================================
+# PAGINATION
+# ============================================
+DEFAULT_PAGE_SIZE=20
+MAX_PAGE_SIZE=100

@@ -5,6 +5,28 @@ class CarSupabase {
     return await adapter.listCars(companyId);
   }
 
+  static async findByCompany(companyId) {
+    return await adapter.listCars(companyId);
+  }
+
+  static async findAll() {
+    const supabase = require('../config/supabase');
+    const { data, error } = await supabase.from('cars').select('*').order('created_at', { ascending: false });
+    if (error) throw error;
+    return data || [];
+  }
+
+  static async findByRoute(routeId) {
+    const supabase = require('../config/supabase');
+    const { data, error } = await supabase
+      .from('cars')
+      .select('*')
+      .eq('route_id', routeId)
+      .order('created_at', { ascending: false });
+    if (error) throw error;
+    return data || [];
+  }
+
   static async findById(id) {
     return await adapter.getCarById(id);
   }

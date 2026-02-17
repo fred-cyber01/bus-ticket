@@ -13,6 +13,23 @@ class TripSupabase {
     return await adapter.listTrips(filters);
   }
 
+  static async findByCompany(companyId, options = {}) {
+    const supabase = require('../config/supabase');
+    let q = supabase.from('trips').select('*').eq('company_id', companyId).order('departure_time', { ascending: true });
+    
+    if (options.status) {
+      q = q.eq('status', options.status);
+    }
+    if (options.date) {
+      const dayStart = new Date(options.date).toISOString().split('T')[0];
+      q = q.ilike('trip_date', `${dayStart}%`).or(`departure_time.gte.${dayStart}T00:00:00`).or(`departure_time.lte.${dayStart}T23:59:59`);
+    }
+    
+    const { data, error } = await q;
+    if (error) throw error;
+    return data || [];
+  }
+
   /**
    * Backwards-compatible method used by controllers.
    * Accepts simple filters: { origin, destination, date, route_id, company_id }

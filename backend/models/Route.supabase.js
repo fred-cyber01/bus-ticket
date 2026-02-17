@@ -13,6 +13,10 @@ class RouteSupabase {
     return await adapter.listRoutes(options.company_id);
   }
 
+  static async findByCompany(companyId) {
+    return await adapter.listRoutes(companyId);
+  }
+
   static async update(id, updateData) {
     const supabase = require('../config/supabase');
     const { data, error } = await supabase.from('routes').update(updateData).eq('id', id);

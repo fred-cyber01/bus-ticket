@@ -5,8 +5,24 @@ class DriverSupabase {
     return await adapter.listDrivers(companyId);
   }
 
+  static async findByCompany(companyId) {
+    return await adapter.listDrivers(companyId);
+  }
+
   static async findById(id) {
     return await adapter.getDriverById(id);
+  }
+
+  static async findByEmail(email) {
+    const supabase = require('../config/supabase');
+    const { data, error } = await supabase.from('drivers').select('*').eq('email', email).limit(1).single();
+    if (error && error.code !== 'PGRST116') throw error;
+    return data;
+  }
+
+  static async verifyPassword(plainPassword, hashedPassword) {
+    const bcrypt = require('bcryptjs');
+    return await bcrypt.compare(plainPassword, hashedPassword);
   }
 
   static async create(driverData) {
