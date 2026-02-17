@@ -39,6 +39,13 @@ function CompanyDashboard({ token, onNavigate }) {
     }
   }, [activeTab]);
 
+  // Recalculate stats whenever data changes
+  useEffect(() => {
+    if (buses.length > 0 || drivers.length > 0 || routes.length > 0 || trips.length > 0 || bookings.length > 0) {
+      calculateStats();
+    }
+  }, [buses, drivers, routes, trips, bookings]);
+
   const fetchCompanyInfo = async () => {
     try {
       const response = await fetch(`${API_URL}/company/profile`, {
@@ -66,7 +73,7 @@ function CompanyDashboard({ token, onNavigate }) {
         fetchBookings(),
         fetchStops()
       ]);
-      calculateStats();
+      // Stats will be calculated by useEffect watching the data arrays
     } catch (error) {
       console.error('Error fetching data:', error);
     } finally {

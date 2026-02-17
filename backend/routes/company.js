@@ -190,8 +190,31 @@ router.delete('/drivers/:id', authenticate, async (req, res, next) => {
 router.get('/routes', authenticate, async (req, res, next) => {
   try {
     const companyId = req.user.company_id || req.user.id;
-    const routes = await Route.findByCompany(companyId);
-    res.json({ success: true, data: routes });
+    
+    // Use Supabase directly to get routes with stop names
+    const { data: routes, error } = await supabase
+      .from('routes')
+      .select(`
+        *,
+        origin_stop:stops!routes_origin_stop_id_fkey(id, name, location),
+        destination_stop:stops!routes_destination_stop_id_fkey(id, name, location)
+      `)
+      .eq('company_id', companyId)
+      .order('created_at', { ascending: false });
+    
+    if (error) throw error;
+    
+    // Format the response with readable field names
+    const formattedRoutes = (routes || []).map(route => ({
+      ...route,
+      origin_stop_name: route.origin_stop?.name || route.origin || 'N/A',
+      destination_stop_name: route.destination_stop?.name || route.destination || 'N/A',
+      route_name: route.name || `${route.origin_stop?.name || 'Unknown'} to ${route.destination_stop?.name || 'Unknown'}`,
+      distance: route.distance || 0,
+      base_price: route.base_price || route.price || 0
+    }));
+    
+    res.json({ success: true, data: formattedRoutes });
   } catch (error) {
     next(error);
   }
@@ -272,8 +295,75 @@ router.get('/trips', authenticate, async (req, res, next) => {
   try {
     const companyId = req.user.company_id || req.user.id;
     const { status, date } = req.query;
-    const trips = await (Trip.findByCompany ? Trip.findByCompany(companyId, { status, date }) : []);
-    res.json({ success: true, data: trips });
+    
+    // Use Supabase directly to get trips with all related data
+    let query = supabase
+      .from('trips')
+      .select(`
+        *,
+        route:routes(id, name, origin_stop_id, destination_stop_id, distance, base_price),
+        car:cars(id, plate_number, name, type, capacity, total_seats),
+        driver:drivers(id, name, phone, license_number)
+      `)
+      .eq('company_id', companyId)
+      .order('trip_date', { ascending: true })
+      .order('departure_time', { ascending: true });
+    
+    if (status) {
+      query = query.eq('status', status);
+    }
+    
+    if (date) {
+      query = query.eq('trip_date', date);
+    }
+    
+    const { data: trips, error } = await query;
+    
+    if (error) throw error;
+    
+    // Get stop names for routes
+    const routeIds = [...new Set((trips || []).map(t => t.route?.id).filter(Boolean))];
+    let stopNames = {};
+    
+    if (routeIds.length > 0) {
+      const { data: routes } = await supabase
+        .from('routes')
+        .select(`
+          id,
+          origin_stop:stops!routes_origin_stop_id_fkey(name),
+          destination_stop:stops!routes_destination_stop_id_fkey(name)
+        `)
+        .in('id', routeIds);
+      
+      routes?.forEach(r => {
+        stopNames[r.id] = {
+          origin: r.origin_stop?.name,
+          destination: r.destination_stop?.name
+        };
+      });
+    }
+    
+    // Format the response
+    const formattedTrips = (trips || []).map(trip => {
+      const routeInfo = stopNames[trip.route?.id] || {};
+      const departureTime = trip.departure_time || trip.trip_date;
+      const timeOnly = departureTime ? new Date(departureTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false }) : 'N/A';
+      
+      return {
+        ...trip,
+        route_name: trip.route?.name || `${routeInfo.origin || 'Unknown'} to ${routeInfo.destination || 'Unknown'}`,
+        origin_stop_name: routeInfo.origin,
+        destination_stop_name: routeInfo.destination,
+        plate_number: trip.car?.plate_number || trip.bus_plate_number,
+        driver_name: trip.driver?.name,
+        departure_time: timeOnly,
+        price: trip.price || trip.route?.base_price || 0,
+        total_seats: trip.total_seats || trip.car?.total_seats || trip.car?.capacity || 30,
+        bus_name: trip.car?.name
+      };
+    });
+    
+    res.json({ success: true, data: formattedTrips });
   } catch (error) {
     next(error);
   }
