@@ -97,12 +97,12 @@ function CompanyDashboard({ token, onNavigate }) {
     } catch (e) { console.error(e) }
   }
 
-  const fetchBuses = () => fetchData(`${API_URL}/company/buses/${company?.id || ''}`, setBuses);
-  const fetchDrivers = () => fetchData(`${API_URL}/company/drivers/${company?.id || ''}`, setDrivers);
-  const fetchRoutes = () => fetchData(`${API_URL}/company/routes/${company?.id || ''}`, setRoutes);
+  const fetchBuses = () => fetchData(`${API_URL}/company/buses`, setBuses);
+  const fetchDrivers = () => fetchData(`${API_URL}/company/drivers`, setDrivers);
+  const fetchRoutes = () => fetchData(`${API_URL}/company/routes`, setRoutes);
   const fetchStops = () => fetchData(`${API_URL}/stops`, setStops); // stops are global
-  const fetchTrips = () => fetchData(`${API_URL}/company/trips/${company?.id || ''}`, setTrips);
-  const fetchBookings = () => fetchData(`${API_URL}/company/bookings/${company?.id || ''}`, setBookings);
+  const fetchTrips = () => fetchData(`${API_URL}/company/trips`, setTrips);
+  const fetchBookings = () => fetchData(`${API_URL}/company/bookings`, setBookings);
 
   const calculateStats = () => {
     const today = new Date().toISOString().split('T')[0];
@@ -146,7 +146,7 @@ function CompanyDashboard({ token, onNavigate }) {
     if (!confirm('Are you sure you want to delete this item?')) return;
 
     try {
-      const endpointMap = { bus: 'cars', driver: 'drivers', route: 'routes', trip: 'trips' };
+      const endpointMap = { bus: 'company/buses', driver: 'company/drivers', route: 'company/routes', trip: 'company/trips' };
       const res = await fetch(`${API_URL}/${endpointMap[type]}/${id}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` }
@@ -169,7 +169,7 @@ function CompanyDashboard({ token, onNavigate }) {
     setError('');
 
     try {
-      const endpointMap = { bus: 'cars', driver: 'drivers', route: 'routes', trip: 'trips' };
+      const endpointMap = { bus: 'company/buses', driver: 'company/drivers', route: 'company/routes', trip: 'company/trips' };
       const endpoint = endpointMap[modalType];
       const method = editingItem ? 'PUT' : 'POST';
       const url = editingItem
