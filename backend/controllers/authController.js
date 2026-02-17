@@ -115,7 +115,7 @@ exports.register = asyncHandler(async (req, res) => {
 
 /**
  * @route   POST /api/auth/signin
- * @desc    Login user
+ * @desc    Login user (automatically detects user type)
  * @access  Public
  */
 exports.login = asyncHandler(async (req, res) => {
@@ -123,55 +123,124 @@ exports.login = asyncHandler(async (req, res) => {
 
   console.log('🔐 Login attempt:', { email });
 
-  // Find user
+  // First, try to find regular user
   const user = await User.findByEmail(email);
 
-  if (!user) {
-    console.log('❌ Login failed: user not found for', email);
+  if (user) {
+    // Check if user is active
+    if (!user.is_active) {
+      return res.status(401).json({
+        success: false,
+        message: 'Your account has been deactivated'
+      });
+    }
+
+    // Verify password
+    console.log('🔑 Verifying password for user:', email);
+    const isPasswordValid = await User.verifyPassword(password, user.password);
+
+    if (!isPasswordValid) {
+      console.log('❌ Login failed: invalid password for', email);
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid email or password. Please check your credentials and try again.'
+      });
+    }
+
+    console.log('✅ User login successful for:', email);
+
+    // Generate token
+    const token = generateToken(user, 'user');
+
+    return res.json({
+      success: true,
+      message: 'Login successful',
+      data: {
+        token,
+        user: {
+          userId: `usr_${user.id}`,
+          username: user.user_name,
+          email: user.email,
+          role: user.role || 'user'
+        }
+      }
+    });
+  }
+
+  // If not found as regular user, check if it's a company manager
+  console.log('🔍 User not found, checking company managers...');
+  const CompanyManager = require('../models/CompanyManager.supabase');
+  
+  try {
+    const manager = await CompanyManager.findByEmail(email);
+
+    if (manager) {
+      console.log('✓ Found as company manager:', manager.name);
+
+      // Check if manager is active
+      if (manager.status !== 'active') {
+        console.log('❌ Manager inactive');
+        return res.status(403).json({
+          success: false,
+          message: 'Your account has been deactivated.'
+        });
+      }
+
+      // Verify password
+      const isPasswordValid = await CompanyManager.validatePassword(manager, password);
+      console.log('🔑 Manager password valid:', isPasswordValid);
+
+      if (!isPasswordValid) {
+        console.log('❌ Invalid password for manager');
+        return res.status(401).json({
+          success: false,
+          message: 'Invalid email or password'
+        });
+      }
+
+      console.log('✅ Company manager login successful for:', email);
+
+      // Generate token with company_manager role
+      const token = jwt.sign(
+        {
+          id: manager.id,
+          email: manager.email,
+          role: 'company_manager',
+          company_id: manager.company_id,
+          type: 'company_manager'
+        },
+        config.jwt.secret,
+        { expiresIn: config.jwt.expire }
+      );
+
+      return res.json({
+        success: true,
+        message: 'Company manager login successful',
+        data: {
+          token,
+          user: {
+            id: manager.id,
+            name: manager.name,
+            email: manager.email,
+            role: 'company_manager',
+            company_id: manager.company_id,
+            phone: manager.phone,
+            type: 'company_manager'
+          }
+        }
+      });
+    }
+
+    // Neither user nor company manager found
+    console.log('❌ No account found with email:', email);
     return res.status(401).json({
       success: false,
       message: 'Invalid credentials'
     });
+  } catch (error) {
+    console.error('❌ Login error:', error);
+    throw error;
   }
-
-  // Check if user is active
-  if (!user.is_active) {
-    return res.status(401).json({
-      success: false,
-      message: 'Your account has been deactivated'
-    });
-  }
-
-  // Verify password
-  console.log('🔑 Verifying password for:', email);
-  const isPasswordValid = await User.verifyPassword(password, user.password);
-
-  if (!isPasswordValid) {
-    console.log('❌ Login failed: invalid password for', email);
-    return res.status(401).json({
-      success: false,
-      message: 'Invalid email or password. Please check your credentials and try again.'
-    });
-  }
-
-  console.log('✅ Login successful for:', email);
-
-  // Generate token
-  const token = generateToken(user, 'user');
-
-  res.json({
-    success: true,
-    message: 'Login successful',
-    data: {
-      token,
-      user: {
-        userId: `usr_${user.id}`,
-        username: user.user_name,
-        email: user.email,
-        role: user.role || 'user'
-      }
-    }
-  });
 });
 
 /**
