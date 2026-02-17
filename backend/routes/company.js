@@ -210,8 +210,8 @@ router.get('/routes', authenticate, async (req, res, next) => {
       origin_stop_name: route.origin_stop?.name || route.origin || 'N/A',
       destination_stop_name: route.destination_stop?.name || route.destination || 'N/A',
       route_name: route.name || `${route.origin_stop?.name || 'Unknown'} to ${route.destination_stop?.name || 'Unknown'}`,
-      distance: route.distance || 0,
-      base_price: route.base_price || route.price || 0
+      distance: route.distance_km || 0,
+      base_price: route.price || 0
     }));
     
     res.json({ success: true, data: formattedRoutes });
@@ -301,7 +301,7 @@ router.get('/trips', authenticate, async (req, res, next) => {
       .from('trips')
       .select(`
         *,
-        route:routes(id, name, origin_stop_id, destination_stop_id, distance, base_price),
+        route:routes(id, name, origin_stop_id, destination_stop_id, distance_km),
         car:cars(id, plate_number, name, type, capacity, total_seats),
         driver:drivers(id, name, phone, license_number)
       `)
@@ -357,7 +357,7 @@ router.get('/trips', authenticate, async (req, res, next) => {
         plate_number: trip.car?.plate_number || trip.bus_plate_number,
         driver_name: trip.driver?.name,
         departure_time: timeOnly,
-        price: trip.price || trip.route?.base_price || 0,
+        price: trip.price || 0,
         total_seats: trip.total_seats || trip.car?.total_seats || trip.car?.capacity || 30,
         bus_name: trip.car?.name
       };
