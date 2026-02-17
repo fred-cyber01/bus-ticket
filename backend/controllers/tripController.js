@@ -15,7 +15,7 @@ exports.getAvailableTrips = async (req, res, next) => {
       .select(`
         *,
         route:routes(
-          id, name, distance, base_price,
+          id, name, distance_km,
           origin_stop:stops!routes_origin_stop_id_fkey(id, name, location),
           destination_stop:stops!routes_destination_stop_id_fkey(id, name, location)
         ),
@@ -58,7 +58,7 @@ exports.getAvailableTrips = async (req, res, next) => {
         destination: trip.route?.destination_stop?.name || 'Unknown',
         origin_location: trip.route?.origin_stop?.location,
         destination_location: trip.route?.destination_stop?.location,
-        distance: trip.route?.distance || 0,
+        distance: trip.route?.distance_km || 0,
         
         // Bus information
         plate_number: trip.car?.plate_number || 'N/A',
@@ -77,8 +77,8 @@ exports.getAvailableTrips = async (req, res, next) => {
         // Time and pricing
         departure_time: timeOnly,
         departure_datetime: trip.departure_time || trip.trip_date,
-        price: trip.price || trip.route?.base_price || 0,
-        fare: trip.price || trip.route?.base_price || 0,
+        price: trip.price || 0,
+        fare: trip.price || 0,
         
         // Seat information
         total_seats: trip.total_seats || trip.car?.total_seats || trip.car?.capacity || 30,
@@ -114,7 +114,7 @@ exports.getTrips = async (req, res, next) => {
       .select(`
         *,
         route:routes(
-          id, name, distance, base_price,
+          id, name, distance_km,
           origin_stop:stops!routes_origin_stop_id_fkey(id, name, location),
           destination_stop:stops!routes_destination_stop_id_fkey(id, name, location)
         ),
@@ -176,7 +176,7 @@ exports.getTrips = async (req, res, next) => {
         destination: trip.route?.destination_stop?.name || 'Unknown',
         origin_location: trip.route?.origin_stop?.location,
         destination_location: trip.route?.destination_stop?.location,
-        distance: trip.route?.distance || 0,
+        distance: trip.route?.distance_km || 0,
         plate_number: trip.car?.plate_number || 'N/A',
         bus_name: trip.car?.name,
         bus_type: trip.car?.type || 'Standard Bus',
@@ -187,8 +187,8 @@ exports.getTrips = async (req, res, next) => {
         company_email: trip.company?.email,
         departure_time: timeOnly,
         departure_datetime: trip.departure_time || trip.trip_date,
-        price: trip.price || trip.route?.base_price || 0,
-        fare: trip.price || trip.route?.base_price || 0,
+        price: trip.price || 0,
+        fare: trip.price || 0,
         total_seats: trip.total_seats || trip.car?.total_seats || trip.car?.capacity || 30,
         available_seats: trip.available_seats || 0,
         occupied_seats: trip.occupied_seats || 0
