@@ -19,6 +19,10 @@ function CompanyDashboard({ token, onNavigate }) {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
+  // Pagination states
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 20;
+
   const API_URL = import.meta.env.VITE_API_BASE_URL || '/api';
 
   const stopLabel = (stop) => stop?.name ?? stop?.stop_name ?? '';
@@ -31,6 +35,7 @@ function CompanyDashboard({ token, onNavigate }) {
   useEffect(() => {
     if (activeTab !== 'overview') {
       fetchTabData();
+      setCurrentPage(1); // Reset to page 1 when changing tabs
     }
   }, [activeTab]);
 
@@ -106,17 +111,20 @@ function CompanyDashboard({ token, onNavigate }) {
 
   const calculateStats = () => {
     const today = new Date().toISOString().split('T')[0];
-    const activeTrips = trips.filter(t => t.trip_date >= today);
-    const todayBookings = bookings.filter(b => b.trip_date === today);
+    const activeTrips = trips.filter(t => t.trip_date >= today && t.status !== 'cancelled');
+    const todayBookings = bookings.filter(b => {
+      const bookingDate = b.trip_date || b.booking_date || b.created_at;
+      return bookingDate && bookingDate.split('T')[0] === today;
+    });
     const totalRevenue = bookings
-      .filter(b => b.payment_status === 'completed')
-      .reduce((sum, b) => sum + parseFloat(b.price || 0), 0);
+      .filter(b => b.payment_status === 'completed' || b.payment_status === 'paid')
+      .reduce((sum, b) => sum + parseFloat(b.price || b.fare || b.ticket_price || 0), 0);
 
     setStats({
       totalBuses: buses.length,
-      activeBuses: buses.filter(b => b.is_active).length,
+      activeBuses: buses.filter(b => b.is_active !== false).length,
       totalDrivers: drivers.length,
-      activeDrivers: drivers.filter(d => d.is_active).length,
+      activeDrivers: drivers.filter(d => d.is_active !== false).length,
       totalRoutes: routes.length,
       activeTrips: activeTrips.length,
       todayBookings: todayBookings.length,
@@ -245,71 +253,79 @@ function CompanyDashboard({ token, onNavigate }) {
     </div>
   );
 
-  const renderTable = (columns, data, type) => (
-    <div className="table-container bg-white shadow-sm border border-slate-200 fade-in">
-      <table className="table">
-        <thead>
-          <tr>
-            {columns.map((col, i) => <th key={i}>{col}</th>)}
-            <th>Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          {data.length === 0 ? (
-            <tr><td colSpan={columns.length + 1} className="py-8 text-center text-slate-500">No data found</td></tr>
-          ) : (
-            data.map((item) => (
-              <tr key={item.id}>
-                {columns.map((col, i) => {
-                  // Custom cell rendering logic based on column header
-                  let content = 'N/A';
-                  if (col === 'Plate Number' && type === 'bus') {
-                    content = (
-                      <div className="flex items-center">
-                        <div className="h-10 w-10 bg-blue-50 rounded-lg flex items-center justify-center mr-3">
-                          <img src="/assets/rwanda-ict-logo.png" alt="bus" className="h-10 w-10 object-cover rounded" />
-                        </div>
-                        <div>
-                          <div className="font-bold text-slate-900">{item.plate_number}</div>
-                          <div className="text-xs text-slate-500">{item.model}</div>
-                        </div>
-                      </div>
-                    );
-                  } else if (col === 'Name' && type === 'driver') {
-                    content = (
-                      <div className="flex items-center">
-                        <div className="h-8 w-8 bg-slate-100 rounded-full flex items-center justify-center mr-3 font-bold text-slate-600">
-                          {item.name?.charAt(0)}
-                        </div>
-                        <span className="font-medium text-slate-900">{item.name}</span>
-                      </div>
-                    );
-                  } else if (col === 'Status') {
-                    const isActive = item.is_active || item.payment_status === 'completed' || item.ticket_status === 'confirmed';
-                    content = <span className={`badge ${isActive ? 'badge-success' : 'badge-danger'}`}>{isActive ? 'Active' : 'Inactive'}</span>;
-                    if (type === 'booking') content = <span className={`badge ${item.payment_status === 'completed' ? 'badge-success' : 'badge-warning'}`}>{item.payment_status}</span>
-                  } else if (col === 'Price') {
-                    content = <span className="font-mono text-slate-700 font-semibold">{parseFloat(item.price || item.base_price || 0).toLocaleString()} RWF</span>;
+  const renderTable = (columns, data, type) => {
+    // Pagination logic
+    const totalPages = Math.ceil(data.length / itemsPerPage);
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    const currentData = data.slice(startIndex, endIndex);
+
+    return (
+      <div className="space-y-4">
+        <div className="table-container bg-white shadow-sm border border-slate-200 fade-in">
+          <table className="table">
+            <thead>
+              <tr>
+                {columns.map((col, i) => <th key={i}>{col}</th>)}
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {currentData.length === 0 ? (
+                <tr><td colSpan={columns.length + 1} className="py-8 text-center text-slate-500">No data found</td></tr>
+              ) : (
+                currentData.map((item) => (
+                  <tr key={item.id}>
+                    {columns.map((col, i) => {
+                      // Custom cell rendering logic based on column header
+                      let content = 'N/A';
+                      if (col === 'Plate Number' && type === 'bus') {
+                        content = (
+                          <div className="flex items-center">
+                            <div className="h-10 w-10 bg-blue-50 rounded-lg flex items-center justify-center mr-3">
+                              <img src="/assets/rwanda-ict-logo.png" alt="bus" className="h-10 w-10 object-cover rounded" />
+                            </div>
+                            <div>
+                              <div className="font-bold text-slate-900">{item.plate_number}</div>
+                              <div className="text-xs text-slate-500">{item.model || item.name}</div>
+                            </div>
+                          </div>
+                        );
+                      } else if (col === 'Name' && type === 'driver') {
+                        content = (
+                          <div className="flex items-center">
+                            <div className="h-8 w-8 bg-slate-100 rounded-full flex items-center justify-center mr-3 font-bold text-slate-600">
+                              {item.name?.charAt(0)}
+                            </div>
+                            <span className="font-medium text-slate-900">{item.name}</span>
+                          </div>
+                        );
+                      } else if (col === 'Status') {
+                        const isActive = item.is_active !== false || item.payment_status === 'completed' || item.ticket_status === 'confirmed';
+                        content = <span className={`badge ${isActive ? 'badge-success' : 'badge-danger'}`}>{isActive ? 'Active' : 'Inactive'}</span>;
+                        if (type === 'booking') content = <span className={`badge ${item.payment_status === 'completed' ? 'badge-success' : 'badge-warning'}`}>{item.payment_status || 'pending'}</span>
+                      } else if (col === 'Price') {
+                        content = <span className="font-mono text-slate-700 font-semibold">{parseFloat(item.price || item.base_price || item.fare || 0).toLocaleString()} RWF</span>;
                   } else {
-                    // Generic Accessors
-                    if (col === 'Email') content = item.email;
-                    if (col === 'Phone') content = item.phone;
-                    if (col === 'Type') content = item.type;
-                    if (col === 'Capacity') content = `${item.total_seats} Seats`;
-                    if (col === 'License') content = item.license_number;
-                    if (col === 'Route Name') content = item.route_name;
-                    if (col === 'Origin') content = item.origin_stop_name || item.origin_name;
-                    if (col === 'Destination') content = item.destination_stop_name || item.destination_name;
+                    // Generic Accessors with fallbacks
+                    if (col === 'Email') content = item.email || 'No email';
+                    if (col === 'Phone') content = item.phone || 'No phone';
+                    if (col === 'Type') content = item.type || 'Standard Bus';
+                    if (col === 'Capacity') content = item.total_seats || item.capacity ? `${item.total_seats || item.capacity} Seats` : '30 Seats';
+                    if (col === 'License') content = item.license_number || 'No license';
+                    if (col === 'Route Name') content = item.route_name || item.name || 'Unnamed Route';
+                    if (col === 'Origin') content = item.origin_stop_name || item.origin_name || item.origin || 'N/A';
+                    if (col === 'Destination') content = item.destination_stop_name || item.destination_name || item.destination || 'N/A';
                     if (col === 'Distance') content = `${item.distance || 0} km`;
-                    if (col === 'Date') content = new Date(item.trip_date).toLocaleDateString();
-                    if (col === 'Time') content = item.departure_time;
-                    if (col === 'Driver') content = item.driver_name;
-                    if (col === 'Bus') content = item.plate_number;
-                    if (col === 'Ref') content = item.booking_reference;
-                    if (col === 'Passenger') content = item.passenger_name;
-                    if (col === 'Seat') content = item.seat_number;
+                    if (col === 'Date') content = item.trip_date ? new Date(item.trip_date).toLocaleDateString() : 'N/A';
+                    if (col === 'Time') content = item.departure_time || 'N/A';
+                    if (col === 'Driver') content = item.driver_name || 'Unassigned';
+                    if (col === 'Bus') content = item.plate_number || item.bus_plate || 'N/A';
+                    if (col === 'Ref') content = item.booking_reference || `BK${item.id}`;
+                    if (col === 'Passenger') content = item.passenger_name || item.phone || 'N/A';
+                    if (col === 'Seat') content = item.seat_number || 'N/A';
                   }
-                  return <td key={i}>{typeof content === 'string' ? content : content || 'N/A'}</td>
+                  return <td key={i}>{typeof content === 'string' || typeof content === 'number' ? content : content || 'N/A'}</td>
                 })}
                 <td>
                   <div className="flex gap-2">
@@ -327,7 +343,55 @@ function CompanyDashboard({ token, onNavigate }) {
         </tbody>
       </table>
     </div>
-  );
+
+    {/* Pagination Controls */}
+    {totalPages > 1 && (
+      <div className="flex justify-between items-center px-4 py-3 bg-white border border-slate-200 rounded-lg">
+        <div className="text-sm text-slate-600">
+          Showing {startIndex + 1} to {Math.min(endIndex, data.length)} of {data.length} items
+        </div>
+        <div className="flex gap-2">
+          <button
+            onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+            disabled={currentPage === 1}
+            className="px-3 py-1 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Previous
+          </button>
+          {[...Array(totalPages)].map((_, idx) => {
+            const pageNum = idx + 1;
+            if (pageNum === 1 || pageNum === totalPages || (pageNum >= currentPage - 1 && pageNum <= currentPage + 1)) {
+              return (
+                <button
+                  key={pageNum}
+                  onClick={() => setCurrentPage(pageNum)}
+                  className={`px-3 py-1 text-sm font-medium rounded ${
+                    currentPage === pageNum
+                      ? 'bg-brand-blue text-white'
+                      : 'text-slate-700 bg-white border border-slate-300 hover:bg-slate-50'
+                  }`}
+                >
+                  {pageNum}
+                </button>
+              );
+            } else if (pageNum === currentPage - 2 || pageNum === currentPage + 2) {
+              return <span key={pageNum} className="px-2 py-1 text-slate-400">...</span>;
+            }
+            return null;
+          })}
+          <button
+            onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+            disabled={currentPage === totalPages}
+            className="px-3 py-1 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Next
+          </button>
+        </div>
+      </div>
+    )}
+  </div>
+);
+};
 
   const renderBuses = () => (
     <div className="space-y-6">
