@@ -176,11 +176,32 @@ CREATE TABLE IF NOT EXISTS tickets (
   updated_at timestamptz DEFAULT now()
 );
 
+-- Payments
+CREATE TABLE IF NOT EXISTS payments (
+  id bigserial PRIMARY KEY,
+  transaction_ref varchar(255) UNIQUE NOT NULL,
+  payment_type varchar(50) NOT NULL,
+  amount numeric(12,2) NOT NULL DEFAULT 0,
+  payment_method varchar(100) NOT NULL,
+  phone_number varchar(50),
+  company_id bigint REFERENCES companies(id) ON DELETE SET NULL,
+  user_id bigint REFERENCES users(id) ON DELETE SET NULL,
+  status varchar(50) DEFAULT 'pending',
+  payment_data jsonb,
+  reference_id bigint,
+  created_at timestamptz DEFAULT now(),
+  updated_at timestamptz DEFAULT now()
+);
+
 -- Useful indexes
 CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
 CREATE INDEX IF NOT EXISTS idx_trips_departure ON trips(departure_time);
 CREATE INDEX IF NOT EXISTS idx_tickets_trip ON tickets(trip_id);
 CREATE INDEX IF NOT EXISTS idx_tickets_booking_reference ON tickets(booking_reference);
+CREATE INDEX IF NOT EXISTS idx_payments_transaction_ref ON payments(transaction_ref);
+CREATE INDEX IF NOT EXISTS idx_payments_user ON payments(user_id);
+CREATE INDEX IF NOT EXISTS idx_payments_company ON payments(company_id);
+CREATE INDEX IF NOT EXISTS idx_payments_status ON payments(status);
 
 -- Trigger to keep updated_at current
 CREATE OR REPLACE FUNCTION trigger_set_timestamp()
@@ -215,6 +236,14 @@ BEGIN
   ) THEN
     CREATE TRIGGER set_timestamp_tickets
     BEFORE UPDATE ON tickets
+    FOR EACH ROW EXECUTE PROCEDURE trigger_set_timestamp();
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_trigger WHERE tgname = 'set_timestamp_payments'
+  ) THEN
+    CREATE TRIGGER set_timestamp_payments
+    BEFORE UPDATE ON payments
     FOR EACH ROW EXECUTE PROCEDURE trigger_set_timestamp();
   END IF;
 END;

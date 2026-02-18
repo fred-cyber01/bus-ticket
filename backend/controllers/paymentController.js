@@ -1,7 +1,8 @@
 // controllers/paymentController.js
 const paymentService = require('../services/paymentService');
 const subscriptionService = require('../services/subscriptionService');
-const { query } = require('../config/database');
+const supabase = require('../config/supabase');
+const Ticket = require('../models/Ticket');
 const { asyncHandler } = require('../middleware/errorHandler');
 
 /**
@@ -342,17 +343,15 @@ exports.confirmTicketPayment = asyncHandler(async (req, res) => {
   }
 
   try {
-    // Get ticket details
-    const ticket = await query('SELECT * FROM tickets WHERE id = ?', [ticketId]);
+    // Get ticket details using Supabase
+    const ticketData = await Ticket.findById(ticketId);
 
-    if (!ticket || ticket.length === 0) {
+    if (!ticketData) {
       return res.status(404).json({
         success: false,
         message: 'Ticket not found'
       });
     }
-
-    const ticketData = ticket[0];
 
     // Check ownership
     if (ticketData.user_id !== userId) {
@@ -491,10 +490,16 @@ exports.handleMoMoPayWebhook = asyncHandler(async (req, res) => {
   console.log('MoMoPay Webhook received:', req.body);
 
   try {
-    // Find payment by payment code in payment_data JSON
-    const payments = await query('SELECT transaction_ref, payment_data FROM payments WHERE JSON_UNQUOTE(JSON_EXTRACT(payment_data, "$.payment_code")) = ? LIMIT 1', [paymentCode]);
+    // Find payment by payment code in payment_data JSON using Supabase
+    const { data: payments, error } = await supabase
+      .from('payments')
+      .select('transaction_ref, payment_data')
+      .contains('payment_data', { payment_code: paymentCode })
+      .limit(1);
 
-    if (payments.length > 0) {
+    if (error) throw error;
+
+    if (payments && payments.length > 0) {
       const txRef = payments[0].transaction_ref;
 
       if (status === 'COMPLETED') {
