@@ -62,7 +62,27 @@ export default function CustomerDashboard() {
     totalSeats: '',
     busNumber: '',
   });
+  const [searchDate, setSearchDate] = useState('');
+  const [searchTimeOfDay, setSearchTimeOfDay] = useState('all'); // all, morning, afternoon, evening, night
+  const [availableTrips, setAvailableTrips] = useState([]);
+  const [showAvailableTrips, setShowAvailableTrips] = useState(false);
+  const [sortBy, setSortBy] = useState('time'); // time, price, seats
   // removed mobile overlay to match provided mockup (desktop-first)
+
+  // Re-sort trips when sort option changes
+  useEffect(() => {
+    if (availableTrips.length === 0) return;
+    
+    const sorted = [...availableTrips];
+    if (sortBy === 'time') {
+      sorted.sort((a, b) => new Date(a.departure_time) - new Date(b.departure_time));
+    } else if (sortBy === 'price') {
+      sorted.sort((a, b) => a.price - b.price);
+    } else if (sortBy === 'seats') {
+      sorted.sort((a, b) => (b.availableSeats || 0) - (a.availableSeats || 0));
+    }
+    setAvailableTrips(sorted);
+  }, [sortBy]);
 
   useEffect(() => {
     let mounted = true;
@@ -291,6 +311,7 @@ export default function CustomerDashboard() {
       const filters = {};
       if (searchOrigin) filters.origin = searchOrigin;
       if (searchDestination) filters.destination = searchDestination;
+      if (searchDate) filters.date = searchDate;
 
       const res = await api.getTrips(filters);
       const raw = res.data || [];
@@ -314,7 +335,7 @@ export default function CustomerDashboard() {
         return Number.isFinite(n) ? n : 0;
       };
 
-      const mapped = raw.map(s => ({
+      let mapped = raw.map(s => ({
         id: s.id || s.tripId || s.schedule_id || Math.random(),
         route_name: s.route_name || s.name || s.routeName || '',
         boarding_stop_name: s.origin_stop_name || s.origin || s.boarding_stop_name || s.originName || '',
@@ -323,10 +344,35 @@ export default function CustomerDashboard() {
         price: normalizePrice(s),
         seat_number: s.seat_number || null,
         availableSeats: s.available_seats ?? s.availableSeats ?? s.totalSeats ?? 0,
+        total_seats: s.total_seats ?? s.available_seats ?? s.availableSeats ?? s.totalSeats ?? 50,
         bus_number: s.plate_number || s.busNumber || s.bus_number || '',
         company_name: s.company_name || s.companyName || ''
       }));
 
+      // Filter by time of day
+      if (searchTimeOfDay !== 'all') {
+        mapped = mapped.filter(trip => {
+          if (!trip.departure_time) return true;
+          const hour = new Date(trip.departure_time).getHours();
+          if (searchTimeOfDay === 'morning' && hour >= 5 && hour < 12) return true;
+          if (searchTimeOfDay === 'afternoon' && hour >= 12 && hour < 17) return true;
+          if (searchTimeOfDay === 'evening' && hour >= 17 && hour < 21) return true;
+          if (searchTimeOfDay === 'night' && (hour >= 21 || hour < 5)) return true;
+          return false;
+        });
+      }
+
+      // Sort trips
+      if (sortBy === 'time') {
+        mapped.sort((a, b) => new Date(a.departure_time) - new Date(b.departure_time));
+      } else if (sortBy === 'price') {
+        mapped.sort((a, b) => a.price - b.price);
+      } else if (sortBy === 'seats') {
+        mapped.sort((a, b) => (b.availableSeats || 0) - (a.availableSeats || 0));
+      }
+
+      setAvailableTrips(mapped);
+      setShowAvailableTrips(true);
       setTickets(mapped);
     } catch (err) {
       console.error('Search error', err);
@@ -416,11 +462,13 @@ export default function CustomerDashboard() {
   const openSeatSelector = (ticket) => {
     // map ticket to SeatSelection expected trip shape
     const tripForSeats = {
-      tripId: ticket.id || ticket.trip_id,
+      id: ticket.id || ticket.trip_id || ticket.tripId,  // Fix: use 'id' instead of 'tripId'
+      tripId: ticket.id || ticket.trip_id || ticket.tripId,
       origin: ticket.boarding_stop_name || ticket.origin || ticket.origin_stop_name,
       destination: ticket.dropoff_stop_name || ticket.destination || ticket.destination_stop_name,
       departureTime: ticket.departure_time || ticket.departureTime || ticket.full_departure_time,
       totalSeats: ticket.totalSeats || ticket.availableSeats || ticket.total_seats || 50,
+      total_seats: ticket.totalSeats || ticket.availableSeats || ticket.total_seats || 50,  // Add both formats
       price: ticket.price || 0,
       busNumber: ticket.bus_number || ticket.plate_number || ticket.busNumber,
       companyName: ticket.company_name || ticket.companyName || ''
@@ -627,8 +675,8 @@ export default function CustomerDashboard() {
             <Bus className="w-6 h-6 text-white" />
           </div>
           <div>
-            <h1 className="text-xl font-bold text-slate-900 leading-none">RideRwanda</h1>
-            <span className="text-[10px] font-bold text-indigo-500 uppercase tracking-widest">Travel Portal</span>
+            <h1 className="text-xl font-bold text-slate-900 leading-none">Rwanda ICT Solution</h1>
+            <span className="text-[10px] font-bold text-indigo-500 uppercase tracking-widest">ICT Solutions · Bus Booking</span>
           </div>
         </div>
 
@@ -758,14 +806,15 @@ export default function CustomerDashboard() {
            </div>
 
           <div className="flex items-center gap-3">
-             <div className="hidden sm:flex items-center gap-3 w-full">
+             <div className="hidden sm:flex items-center gap-2 w-full">
                <div className="flex-1 relative">
-                 <input value={searchOrigin} onChange={(e) => onOriginChange(e.target.value)} type="text" placeholder="Origin (e.g., Kigali)" className="w-full bg-white border border-slate-200 rounded-full px-4 py-2 text-sm text-slate-700" />
+                 <label className="text-xs text-slate-500 font-semibold mb-1 block">📍 From</label>
+                 <input value={searchOrigin} onChange={(e) => onOriginChange(e.target.value)} type="text" placeholder="Origin (e.g., Kigali)" className="w-full bg-white border-2 border-slate-200 rounded-lg px-4 py-2 text-sm text-slate-700 focus:border-indigo-500 focus:outline-none" />
                  {originSuggestions.length > 0 && (
-                   <div className="absolute left-0 right-0 mt-1 bg-white rounded shadow z-40 p-2">
+                   <div className="absolute left-0 right-0 mt-1 bg-white rounded-lg shadow-lg z-40 p-2 border border-slate-200">
                      <ul className="flex flex-col gap-1">
                        {originSuggestions.map((o) => (
-                         <li key={o} onClick={() => pickOrigin(o)} className="px-3 py-1 rounded hover:bg-slate-100 cursor-pointer text-sm">{o}</li>
+                         <li key={o} onClick={() => pickOrigin(o)} className="px-3 py-2 rounded hover:bg-indigo-50 cursor-pointer text-sm font-medium">{o}</li>
                        ))}
                      </ul>
                    </div>
@@ -773,20 +822,37 @@ export default function CustomerDashboard() {
                </div>
 
                <div className="flex-1 relative">
-                 <input value={searchDestination} onChange={(e) => onDestinationChange(e.target.value)} type="text" placeholder="Destination (e.g., Rubavu)" className="w-full bg-white border border-slate-200 rounded-full px-4 py-2 text-sm text-slate-700" />
+                 <label className="text-xs text-slate-500 font-semibold mb-1 block">📍 To</label>
+                 <input value={searchDestination} onChange={(e) => onDestinationChange(e.target.value)} type="text" placeholder="Destination (e.g., Rubavu)" className="w-full bg-white border-2 border-slate-200 rounded-lg px-4 py-2 text-sm text-slate-700 focus:border-indigo-500 focus:outline-none" />
                  {destinationSuggestions.length > 0 && (
-                   <div className="absolute left-0 right-0 mt-1 bg-white rounded shadow z-40 p-2">
+                   <div className="absolute left-0 right-0 mt-1 bg-white rounded-lg shadow-lg z-40 p-2 border border-slate-200">
                      <ul className="flex flex-col gap-1">
                        {destinationSuggestions.map((d) => (
-                         <li key={d} onClick={() => pickDestination(d)} className="px-3 py-1 rounded hover:bg-slate-100 cursor-pointer text-sm">{d}</li>
+                         <li key={d} onClick={() => pickDestination(d)} className="px-3 py-2 rounded hover:bg-indigo-50 cursor-pointer text-sm font-medium">{d}</li>
                        ))}
                      </ul>
                    </div>
                  )}
                </div>
 
-               <div className="flex-shrink-0">
-                 <button onClick={handleSearch} className="px-4 py-2 bg-indigo-600 text-white rounded-full text-sm">Search</button>
+               <div className="flex-1 relative">
+                 <label className="text-xs text-slate-500 font-semibold mb-1 block">📅 Date</label>
+                 <input value={searchDate} onChange={(e) => setSearchDate(e.target.value)} type="date" min={new Date().toISOString().split('T')[0]} className="w-full bg-white border-2 border-slate-200 rounded-lg px-4 py-2 text-sm text-slate-700 focus:border-indigo-500 focus:outline-none" />
+               </div>
+
+               <div className="flex-1 relative">
+                 <label className="text-xs text-slate-500 font-semibold mb-1 block">🕐 Time</label>
+                 <select value={searchTimeOfDay} onChange={(e) => setSearchTimeOfDay(e.target.value)} className="w-full bg-white border-2 border-slate-200 rounded-lg px-4 py-2 text-sm text-slate-700 focus:border-indigo-500 focus:outline-none">
+                   <option value="all">All Times</option>
+                   <option value="morning">🌅 Morning (5AM-12PM)</option>
+                   <option value="afternoon">☀️ Afternoon (12PM-5PM)</option>
+                   <option value="evening">🌆 Evening (5PM-9PM)</option>
+                   <option value="night">🌙 Night (9PM-5AM)</option>
+                 </select>
+               </div>
+
+               <div className="flex-shrink-0 mt-5">
+                 <button onClick={handleSearch} className="px-6 py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white rounded-lg text-sm font-bold shadow-lg shadow-indigo-600/30 transition-all hover:scale-105 active:scale-95">🔍 Search Trips</button>
                </div>
              </div>
              <button className="p-2.5 rounded-full bg-white border border-slate-200 text-slate-500 hover:text-indigo-600 hover:border-indigo-100 hover:bg-indigo-50 transition-colors relative">
@@ -813,19 +879,116 @@ export default function CustomerDashboard() {
           ) : (
             <div className="animate-fade-in">
               {activeTab === 'tickets' ? (
-                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 pt-4">
-                   {tickets.map((ticket) => (
-                     <TicketCard key={ticket.id} ticket={ticket} />
-                   ))}
-                   {/* Add a "Book New" card placeholder */}
-                   <div className="group border-2 border-dashed border-slate-200 rounded-2xl flex flex-col items-center justify-center p-8 hover:border-indigo-400 hover:bg-indigo-50/50 transition-all cursor-pointer">
-                      <div className="w-14 h-14 rounded-full bg-slate-50 group-hover:bg-white group-hover:scale-110 transition-transform flex items-center justify-center mb-4 shadow-sm">
-                         <ArrowRight size={24} className="text-slate-300 group-hover:text-indigo-600" />
+                <div>
+                  {/* Show Available Trips Section */}
+                  {showAvailableTrips && availableTrips.length > 0 && (
+                    <div className="mb-8">
+                      <div className="flex items-center justify-between mb-4">
+                        <div>
+                          <h3 className="text-2xl font-bold text-slate-900">🚌 Available Trips</h3>
+                          <p className="text-sm text-slate-500 mt-1">Found {availableTrips.length} trip{availableTrips.length !== 1 ? 's' : ''} • {searchDate ? new Date(searchDate).toLocaleDateString('en-US', {weekday: 'long', month: 'long', day: 'numeric'}) : 'All dates'}</p>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <select value={sortBy} onChange={(e) => setSortBy(e.target.value)} className="text-sm border border-slate-200 rounded-lg px-3 py-2">
+                            <option value="time">⏰ Sort by Time</option>
+                            <option value="price">💰 Sort by Price</option>
+                            <option value="seats">💺 Sort by Seats</option>
+                          </select>
+                          <button onClick={() => setShowAvailableTrips(false)} className="text-sm text-slate-500 hover:text-slate-700 px-3 py-2 border border-slate-200 rounded-lg">✕ Clear</button>
+                        </div>
                       </div>
-                      <p className="font-bold text-slate-400 group-hover:text-indigo-600">Book Next Trip</p>
-                      <p className="text-xs text-slate-400 mt-1">Explore new destinations</p>
-                   </div>
-                 </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+                        {availableTrips.map((trip) => {
+                          const depTime = trip.departure_time ? new Date(trip.departure_time) : null;
+                          const hour = depTime ? depTime.getHours() : 0;
+                          let timeIcon = '🕐';
+                          let timeLabel = 'Time';
+                          let gradientClass = 'from-indigo-50 to-purple-50 border-indigo-200';
+                          
+                          if (hour >= 5 && hour < 12) { timeIcon = '🌅'; timeLabel = 'Morning'; gradientClass = 'from-amber-50 to-orange-50 border-orange-200'; }
+                          else if (hour >= 12 && hour < 17) { timeIcon = '☀️'; timeLabel = 'Afternoon'; gradientClass = 'from-yellow-50 to-amber-50 border-yellow-200'; }
+                          else if (hour >= 17 && hour < 21) { timeIcon = '🌆'; timeLabel = 'Evening'; gradientClass = 'from-purple-50 to-pink-50 border-purple-200'; }
+                          else { timeIcon = '🌙'; timeLabel = 'Night'; gradientClass = 'from-indigo-50 to-blue-50 border-indigo-200'; }
+                          
+                          return (
+                          <div key={trip.id} className={`bg-gradient-to-br ${gradientClass} border-2 rounded-2xl p-5 hover:shadow-2xl hover:scale-[1.02] transition-all cursor-pointer relative overflow-hidden`} onClick={() => openSeatSelector(trip)}>
+                            {/* Time badge */}
+                            <div className="absolute top-0 right-0 bg-white/90 backdrop-blur px-3 py-1 rounded-bl-xl border-l border-b border-slate-200">
+                              <span className="text-xs font-bold text-slate-700">{timeIcon} {timeLabel}</span>
+                            </div>
+                            
+                            <div className="flex justify-between items-start mb-4 pt-6">
+                              <div>
+                                <p className="text-xs text-indigo-600 font-bold uppercase tracking-wide">Available Now</p>
+                                <p className="text-sm text-slate-600 mt-1 font-medium">{trip.company_name || 'Bus Service'}</p>
+                                <p className="text-xs text-slate-500 mt-1">Bus: {trip.bus_number || 'N/A'}</p>
+                              </div>
+                              <span className="bg-green-500 text-white text-sm font-bold px-3 py-1.5 rounded-full shadow-lg flex items-center gap-1">
+                                💺 {trip.availableSeats || trip.total_seats || 0}
+                              </span>
+                            </div>
+                            
+                            <div className="flex items-center justify-between mb-4 bg-white/60 backdrop-blur rounded-xl p-3">
+                              <div className="flex-1">
+                                <p className="text-xl font-black text-slate-900 truncate">{trip.boarding_stop_name?.substring(0, 15)}</p>
+                                <p className="text-xs text-slate-500 truncate">{trip.boarding_stop_name}</p>
+                              </div>
+                              <div className="mx-3">
+                                <Bus size={24} className="text-indigo-500" />
+                              </div>
+                              <div className="flex-1 text-right">
+                                <p className="text-xl font-black text-slate-900 truncate">{trip.dropoff_stop_name?.substring(0, 15)}</p>
+                                <p className="text-xs text-slate-500 truncate">{trip.dropoff_stop_name}</p>
+                              </div>
+                            </div>
+                            
+                            {/* Prominent time display */}
+                            <div className="mb-3 bg-white/80 backdrop-blur rounded-xl p-3 border border-slate-200">
+                              <div className="grid grid-cols-2 gap-3">
+                                <div>
+                                  <p className="text-xs text-slate-500 font-semibold uppercase tracking-wider">📅 Date</p>
+                                  <p className="text-sm font-bold text-slate-900 mt-0.5">{depTime ? depTime.toLocaleDateString('en-US', {month: 'short', day: 'numeric'}) : 'N/A'}</p>
+                                </div>
+                                <div className="text-right">
+                                  <p className="text-xs text-slate-500 font-semibold uppercase tracking-wider">🕐 Time</p>
+                                  <p className="text-2xl font-black text-indigo-600 mt-0.5 tabular-nums">{depTime ? depTime.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit', hour12: true}) : 'N/A'}</p>
+                                </div>
+                              </div>
+                            </div>
+                            
+                            <div className="flex items-center justify-between pt-3 border-t-2 border-dashed border-slate-300">
+                              <div>
+                                <p className="text-xs text-slate-500 font-medium">Price per seat</p>
+                                <p className="text-2xl font-black text-green-600">{trip.price?.toLocaleString()} <span className="text-sm">RWF</span></p>
+                              </div>
+                              <button onClick={(e) => { e.stopPropagation(); openSeatSelector(trip); }} className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-bold py-2.5 px-5 rounded-lg shadow-lg transition-all hover:scale-105 active:scale-95">
+                                Select Seats →
+                              </button>
+                            </div>
+                          </div>
+                        )})}
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* My Tickets Section */}
+                  <div>
+                    <h3 className="text-lg font-bold text-slate-900 mb-4">My Bookings</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                      {tickets.filter(t => t.seat_number).map((ticket) => (
+                        <TicketCard key={ticket.id} ticket={ticket} />
+                      ))}
+                      {/* Add a "Book New" card placeholder */}
+                      <div onClick={() => setShowAvailableTrips(true)} className="group border-2 border-dashed border-slate-200 rounded-2xl flex flex-col items-center justify-center p-8 hover:border-indigo-400 hover:bg-indigo-50/50 transition-all cursor-pointer">
+                         <div className="w-14 h-14 rounded-full bg-slate-50 group-hover:bg-white group-hover:scale-110 transition-transform flex items-center justify-center mb-4 shadow-sm">
+                            <ArrowRight size={24} className="text-slate-300 group-hover:text-indigo-600" />
+                         </div>
+                         <p className="font-bold text-slate-400 group-hover:text-indigo-600">Book Next Trip</p>
+                         <p className="text-xs text-slate-400 mt-1">Search for available trips</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
               ) : activeTab === 'payments' ? (
                 <div className="bg-white rounded-3xl border border-slate-100 overflow-hidden shadow-sm animate-slide-right">
                   <div className="overflow-x-auto">

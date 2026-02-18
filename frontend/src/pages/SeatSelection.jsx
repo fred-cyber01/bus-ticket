@@ -25,14 +25,24 @@ const SeatSelection = ({ trip, onBack, onBookingComplete }) => {
   const fetchOccupiedSeats = async () => {
     try {
       setLoading(true);
+      // Get trip ID from multiple possible properties
+      const tripId = trip.id || trip.tripId || trip.trip_id;
+      
+      if (!tripId) {
+        console.warn('No trip ID found:', trip);
+        setOccupiedSeats([]);
+        setLoading(false);
+        return;
+      }
+      
       // Get occupied seats for this trip
-      const response = await api.getTripTickets(trip.id);
+      const response = await api.getTripTickets(tripId);
       // response expected to be { success: true, data: [bookings...] }
       const bookings = (response && response.data) || [];
       // Each booking may include tickets array or a seat_number property
       const occupied = [];
       bookings.forEach((b) => {
-        if (b.trip_id == trip.id || b.tripId == trip.id || (b.tickets && b.tickets.some)) {
+        if (b.trip_id == tripId || b.tripId == tripId || (b.tickets && b.tickets.some)) {
           if (Array.isArray(b.tickets)) {
             b.tickets.forEach((t) => {
               if (t.seat_number) occupied.push(t.seat_number);
@@ -52,7 +62,7 @@ const SeatSelection = ({ trip, onBack, onBookingComplete }) => {
     }
   };
 
-  const totalSeats = trip.total_seats || 50; // Default to 50 if not specified
+  const totalSeats = trip.total_seats || trip.totalSeats || 50; // Default to 50 if not specified
   const availableSeats = Array.from({ length: totalSeats }, (_, i) => i + 1)
     .filter(seat => !occupiedSeats.includes(seat));
 
@@ -111,12 +121,16 @@ const SeatSelection = ({ trip, onBack, onBookingComplete }) => {
     try {
       setBookingLoading(true);
 
-      if (!trip || !trip.id) {
-        throw new Error('Invalid trip data - missing trip ID');
+      // Get trip ID from multiple possible properties
+      const tripId = trip.id || trip.tripId || trip.trip_id;
+      
+      if (!trip || !tripId) {
+        console.error('Trip data:', trip);
+        throw new Error('Invalid trip data - missing trip ID. Please try selecting the trip again.');
       }
 
       const bookingData = {
-        tripId: String(trip.id),
+        tripId: String(tripId),
         seatNumbers: selectedSeats.map(seat => seat.toString()),
         passengerDetails: passengerDetails
       };
@@ -326,11 +340,19 @@ const SeatSelection = ({ trip, onBack, onBookingComplete }) => {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
-              <h2 className="text-lg font-semibold mb-2">{trip.origin} → {trip.destination}</h2>
-              <p className="text-gray-600 mb-1">{new Date(trip.departureTime).toLocaleString()}</p>
-              <p className="text-gray-600 mb-1">Bus: {trip.busNumber || trip.plate_number || 'N/A'}</p>
-              <p className="text-gray-600 mb-1">Company: {trip.companyName || trip.company_name || 'N/A'}</p>
-              <p className="text-lg font-bold text-green-600">{trip.price ? `${trip.price} RWF per seat` : 'Price not available'}</p>
+              <h2 className="text-lg font-semibold mb-2">{trip.origin || trip.boarding_stop_name} → {trip.destination || trip.dropoff_stop_name}</h2>
+              <p className="text-gray-600 mb-1">
+                <strong>Departure:</strong> {trip.departureTime ? new Date(trip.departureTime).toLocaleString() : 'N/A'}
+              </p>
+              <p className="text-gray-600 mb-1">
+                <strong>Bus:</strong> {trip.busNumber || trip.bus_number || trip.plate_number || 'N/A'}
+              </p>
+              <p className="text-gray-600 mb-3">
+                <strong>Company:</strong> {trip.companyName || trip.company_name || 'Bus Service'}
+              </p>
+              <p className="text-lg font-bold text-green-600">
+                {trip.price ? `${Number(trip.price).toLocaleString()} RWF per seat` : 'Price not available'}
+              </p>
             </div>
 
             <div className="text-right">
