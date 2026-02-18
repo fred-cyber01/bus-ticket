@@ -2,7 +2,7 @@
 const Ticket = require('../models/Ticket');
 const Trip = require('../models/Trip');
 const Route = require('../models/Route');
-const { query } = require('../config/database');
+// MySQL query removed - using Supabase via models
 const { asyncHandler } = require('../middleware/errorHandler');
 const moment = require('moment-timezone');
 const QRCode = require('qrcode');
@@ -187,11 +187,8 @@ exports.createBooking = asyncHandler(async (req, res) => {
       margin: 1
     });
 
-    // Save QR code to database
-    await query(
-      'UPDATE tickets SET qr_code = ? WHERE id = ?',
-      [qrCodeDataURL, ticketId]
-    );
+    // Save QR code to database using Supabase
+    await Ticket.update(ticketId, { qr_code: qrCodeDataURL });
 
     bookingIds.push(ticketId);
     totalPrice += totalAmount;
@@ -504,67 +501,14 @@ exports.getTripTickets = asyncHandler(async (req, res) => {
  * @route   POST /api/tickets/check-availability
  * @desc    Check seat availability
  * @access  Public
+ * @note    Legacy function - currently disabled for Supabase migration
  */
 exports.checkAvailability = asyncHandler(async (req, res) => {
-  const {
-    schedule_id,
-    trip_date,
-    boarding_stop_id,
-    dropoff_stop_id
-  } = req.body;
-
-  // Get schedule
-  const scheduleSql = `
-    SELECT ds.*, r.id as route_id, c.capacity
-    FROM daily_schedules ds
-    JOIN routes r ON ds.route_id = r.id
-    JOIN cars c ON ds.car_id = c.id
-    WHERE ds.id = ?
-  `;
-  const [schedule] = await query(scheduleSql, [schedule_id]);
-
-  if (!schedule) {
-    return res.status(404).json({
-      success: false,
-      message: 'Schedule not found'
-    });
-  }
-
-  // Get stop orders
-  const stopOrderSql = `
-    SELECT stop_id, stop_order
-    FROM route_stops
-    WHERE route_id = ? AND stop_id IN (?, ?)
-  `;
-  const stopOrders = await query(stopOrderSql, [schedule.route_id, boarding_stop_id, dropoff_stop_id]);
-
-  const boardingOrder = stopOrders.find(s => s.stop_id === parseInt(boarding_stop_id))?.stop_order;
-  const dropoffOrder = stopOrders.find(s => s.stop_id === parseInt(dropoff_stop_id))?.stop_order;
-
-  // Get or create trip
-  const departureDateTime = `${trip_date} ${schedule.departure_time}`;
-  const tripId = await Trip.getOrCreate(schedule.route_id, schedule.car_id, departureDateTime);
-
-  // Get occupied seats
-  const occupiedSeats = await Ticket.getOccupiedSeats(tripId, boardingOrder, dropoffOrder);
-
-  // Get price
-  const priceSql = `
-    SELECT price
-    FROM destination_prices
-    WHERE route_id = ? AND start_stop_id = ? AND end_stop_id = ?
-  `;
-  const [priceData] = await query(priceSql, [schedule.route_id, boarding_stop_id, dropoff_stop_id]);
-
-  res.json({
-    success: true,
-    data: {
-      capacity: schedule.capacity,
-      occupied_seats: occupiedSeats,
-      available_seats: schedule.capacity - occupiedSeats.length,
-      price: priceData?.price || 0,
-      trip_id: tripId
-    }
+  // This function uses daily_schedules which is not part of current Supabase schema
+  // Use the trip-based seat availability check in SeatSelection component instead
+  return res.status(501).json({
+    success: false,
+    message: 'This feature is not available. Please use the trip-based seat selection.'
   });
 });
 
@@ -577,11 +521,11 @@ exports.confirmPayment = asyncHandler(async (req, res) => {
   const { id } = req.params;
   const { paymentMethod } = req.body;
 
-  // Update ticket status to confirmed and payment to completed
-  await query(
-    'UPDATE tickets SET ticket_status = "confirmed", payment_status = "completed" WHERE id = ?',
-    [id]
-  );
+  // Update ticket status to confirmed and payment to completed using Supabase
+  await Ticket.update(id, {
+    ticket_status: 'confirmed',
+    payment_status: 'completed'
+  });
 
   const ticket = await Ticket.findById(id);
 
@@ -600,36 +544,62 @@ exports.confirmPayment = asyncHandler(async (req, res) => {
 exports.downloadTicketPDF = asyncHandler(async (req, res) => {
   const { id } = req.params;
   const PDFDocument = require('pdfkit');
+  const supabase = require('../config/supabase');
 
-  // Get ticket details with all related info
-  const ticketSql = `
-    SELECT t.*,
-           u.user_name, u.email as user_email, u.phone as user_phone,
-           tr.trip_date, tr.departure_time,
-           s1.name as origin,
-           s2.name as destination,
-           c.plate_number,
-           comp.company_name,
-           comp.phone as company_phone
-    FROM tickets t
-    JOIN users u ON t.user_id = u.id
-    JOIN trips tr ON t.trip_id = tr.id
-    JOIN stops s1 ON tr.origin_id = s1.id
-    JOIN stops s2 ON tr.destination_id = s2.id
-    JOIN cars c ON tr.car_id = c.id
-    JOIN companies comp ON c.company_id = comp.id
-    WHERE t.id = ?
-  `;
+  // Get ticket details using Supabase with joins
+  const { data: ticketData, error: ticketError } = await supabase
+    .from('tickets')
+    .select(`
+      *,
+      user:users!tickets_user_id_fkey(user_name, email, phone),
+      trip:trips!tickets_trip_id_fkey(
+        trip_date,
+        departure_time,
+        origin_id,
+        destination_id,
+        car_id,
+        car:cars(plate_number, company_id, company:companies(company_name, phone))
+      )
+    `)
+    .eq('id', id)
+    .single();
 
-  const ticketResult = await query(ticketSql, [id]);
-  if (!ticketResult || ticketResult.length === 0) {
+  if (ticketError || !ticketData) {
     return res.status(404).json({
       success: false,
       message: 'Ticket not found'
     });
   }
 
-  const ticket = ticketResult[0];
+  // Get stop names
+  const { data: originStop } = await supabase
+    .from('stops')
+    .select('name')
+    .eq('id', ticketData.trip?.origin_id)
+    .single()
+    .catch(() => ({ data: null }));
+
+  const { data: destinationStop } = await supabase
+    .from('stops')
+    .select('name')
+    .eq('id', ticketData.trip?.destination_id)
+    .single()
+    .catch(() => ({ data: null }));
+
+  // Build ticket object for PDF
+  const ticket = {
+    ...ticketData,
+    user_name: ticketData.user?.user_name,
+    user_email: ticketData.user?.email,
+    user_phone: ticketData.user?.phone,
+    trip_date: ticketData.trip?.trip_date,
+    departure_time: ticketData.trip?.departure_time,
+    origin: originStop?.name || 'N/A',
+    destination: destinationStop?.name || 'N/A',
+    plate_number: ticketData.trip?.car?.plate_number || 'N/A',
+    company_name: ticketData.trip?.car?.company?.company_name || 'Bus Company',
+    company_phone: ticketData.trip?.car?.company?.phone || '+250788000000'
+  };
 
   // Create PDF document
   const doc = new PDFDocument({ size: 'A4', margin: 50 });
