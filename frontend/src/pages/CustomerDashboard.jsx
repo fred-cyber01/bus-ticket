@@ -118,13 +118,24 @@ export default function CustomerDashboard() {
               id: b.id,
               boarding_stop_name: b.boarding_stop_name || b.boarding || '',
               dropoff_stop_name: b.dropoff_stop_name || b.dropoff || '',
+              origin: b.boarding_stop_name || b.boarding || b.origin || '',
+              destination: b.dropoff_stop_name || b.dropoff || b.destination || '',
               departure_time: normalizeDeparture(b),
               price: Number(b.price || b.totalAmount || b.total_price || 0),
               seat_number: b.seat_number || b.seat || null,
               route_name: b.route_name || '',
               plate_number: b.plate_number || b.bus_plate || '' ,
               company_name: b.company_name || '' ,
-              status: b.ticket_status || b.status || ''
+              status: b.ticket_status || b.status || '',
+              passenger_name: b.passenger_name || '',
+              passenger_phone: b.passenger_phone || '',
+              passenger_email: b.passenger_email || '',
+              passenger_age: b.passenger_age || null,
+              payment_status: b.payment_status || 'pending',
+              payment_method: b.payment_method || 'MTN Mobile Money',
+              booking_reference: b.booking_reference || `BK${String(b.id || '').padStart(6, '0')}`,
+              qr_code: b.qr_code || null,
+              transaction_ref: b.transaction_ref || null
             }));
 
             setTickets(bookings);
@@ -412,22 +423,32 @@ export default function CustomerDashboard() {
     setDestinationSuggestions([]);
   };
 
-  const handleDownload = (e, id) => {
+  const handleDownload = (e, ticketData) => {
     e.stopPropagation();
     (async () => {
       try {
         let booking = null;
-        if (id && typeof id === 'object') booking = id;
-        else if (id) {
-          const res = await api.getBooking(id).catch(() => null);
+        if (ticketData && typeof ticketData === 'object') {
+          booking = ticketData;
+        } else if (ticketData) {
+          const res = await api.getBooking(ticketData).catch(() => null);
           booking = res && res.data ? res.data : null;
+          // Map fields for display
+          if (booking) {
+            booking.origin = booking.origin || booking.boarding_stop_name || '';
+            booking.destination = booking.destination || booking.dropoff_stop_name || '';
+            booking.booking_reference = booking.booking_reference || `BK${String(booking.id || '').padStart(6, '0')}`;
+          }
         }
         if (!booking) return alert('Unable to fetch ticket details for download');
 
-        const html = `<!doctype html><html><head><meta charset="utf-8"><title>Ticket #${booking.id}</title><meta name="viewport" content="width=device-width,initial-scale=1"><style>body{font-family:system-ui,-apple-system,Segoe UI,Roboto,'Helvetica Neue',Arial;padding:24px;color:#111} .ticket{max-width:720px;margin:0 auto;border:1px solid #e5e7eb;padding:20px;border-radius:12px} h1{font-size:20px;margin-bottom:6px} p{margin:4px 0}</style></head><body><div class="ticket"><h1>Ticket #${booking.id}</h1><p><strong>Passenger:</strong> ${booking.passenger_name || booking.user_name || booking.user || ''}</p><p><strong>Trip:</strong> ${booking.route_name || booking.route || (booking.origin && booking.destination ? booking.origin + ' → ' + booking.destination : '')}</p><p><strong>Departure:</strong> ${booking.departure_time ? new Date(booking.departure_time).toLocaleString() : ''}</p><p><strong>Seat:</strong> ${booking.seat_number || ''}</p><p><strong>Price:</strong> ${booking.price ? booking.price + ' RWF' : ''}</p><hr/><p style="font-size:12px;color:#6b7280">Present this page at boarding. Save or print as PDF.</p></div><script>window.onload = function(){ window.print(); };</script></body></html>`;
+        const ticketNum = booking.booking_reference || booking.id || '000000';
+        const qrCodeUrl = booking.qr_code || `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(JSON.stringify({id: booking.id, ref: ticketNum}))}`;
+        
+        const html = `<!doctype html><html><head><meta charset="utf-8"><title>Ticket #${ticketNum}</title><meta name="viewport" content="width=device-width,initial-scale=1"><style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;color:#333;background:#f5f5f5;padding:20px}.container{max-width:800px;margin:0 auto;background:white;border-radius:12px;overflow:hidden;box-shadow:0 4px 6px rgba(0,0,0,0.1)}.header{background:linear-gradient(135deg,#3b82f6 0%,#2563eb 100%);color:white;text-align:center;padding:24px}.header h1{font-size:24px;margin-bottom:8px}.header p{font-size:14px;opacity:0.9}.ticket-num{background:#f97316;color:white;text-align:center;padding:8px;font-weight:600;font-size:14px}.content{padding:32px}.section{margin-bottom:24px}.section-title{background:#f1f5f9;padding:8px 12px;font-size:13px;font-weight:600;color:#475569;margin-bottom:12px;border-left:4px solid #3b82f6}.info-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:16px}.info-item{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f1f5f9;font-size:14px}.info-item .label{color:#64748b;font-weight:500}.info-item .value{color:#1e293b;font-weight:600}.pricing{background:#f8fafc;padding:16px;border-radius:8px;margin-top:16px}.pricing .total{border-top:2px solid #cbd5e1;margin-top:12px;padding-top:12px;font-size:18px;font-weight:700;color:#f97316}.qr-section{text-align:center;margin:24px 0}.qr-section img{width:180px;height:180px;border:2px solid #e2e8f0;border-radius:8px;padding:8px;background:white}.footer{background:#f8fafc;padding:16px;border-top:2px solid #e2e8f0;font-size:12px;color:#64748b}.footer ul{list-style:none;padding-left:0}.footer li{margin:4px 0;padding-left:16px;position:relative}.footer li:before{content:'•';position:absolute;left:0;color:#3b82f6}@media print{body{background:white;padding:0}.container{box-shadow:none}}@media (max-width:768px){.info-grid{grid-template-columns:1fr}}</style></head><body><div class="container"><div class="header"><h1>🚌 BUS COMPANY</h1><p>E-Ticket - Rwanda Bus Service</p></div><div class="ticket-num">TICKET #${ticketNum}</div><div class="content"><div class="info-grid"><div><div class="section-title">PASSENGER INFORMATION</div><div class="info-item"><span class="label">Full Name:</span><span class="value">${booking.passenger_name || 'N/A'}</span></div><div class="info-item"><span class="label">Phone:</span><span class="value">${booking.passenger_phone || booking.user_phone || 'N/A'}</span></div><div class="info-item"><span class="label">Email:</span><span class="value">${booking.passenger_email || booking.user_email || 'N/A'}</span></div></div><div><div class="section-title">TRIP DETAILS</div><div class="info-item"><span class="label">From:</span><span class="value">${booking.origin || 'N/A'}</span></div><div class="info-item"><span class="label">To:</span><span class="value">${booking.destination || 'N/A'}</span></div><div class="info-item"><span class="label">Date:</span><span class="value">${booking.departure_time ? new Date(booking.departure_time).toLocaleDateString() : 'N/A'}</span></div><div class="info-item"><span class="label">Time:</span><span class="value">${booking.departure_time ? new Date(booking.departure_time).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : 'N/A'}</span></div><div class="info-item"><span class="label">Bus Plate:</span><span class="value">${booking.plate_number || 'N/A'}</span></div><div class="info-item"><span class="label">Company:</span><span class="value">${booking.company_name || 'Bus Service'}</span></div><div class="info-item"><span class="label">Seat Number:</span><span class="value" style="color:#f97316;font-size:16px">${booking.seat_number || 'N/A'}</span></div></div></div><div class="pricing"><div class="section-title">PRICING DETAILS</div><div class="info-item"><span class="label">Ticket Fare:</span><span class="value">${(booking.price || 0).toLocaleString()} RWF</span></div><div class="info-item"><span class="label">Service Fee:</span><span class="value">${(booking.service_fee || 500).toLocaleString()} RWF</span></div><div class="info-item total"><span class="label">TOTAL PAID:</span><span class="value">${((booking.price || 0) + (booking.service_fee || 500)).toLocaleString()} RWF</span></div></div><div class="qr-section"><div class="section-title">SCAN TO VERIFY</div><img src="${qrCodeUrl}" alt="QR Code" /></div></div><div class="footer"><strong>Terms & Conditions:</strong><ul><li>Please arrive 15 minutes before departure time</li><li>This ticket is non-refundable and non-transferable</li><li>Valid ID required for boarding</li><li>Present this ticket and ID at boarding gate</li></ul></div></div><script>setTimeout(() => window.print(), 500);</script></body></html>`;
 
         const w = window.open('', '_blank');
-        if (!w) return alert('Please allow popups to download ticket');
+        if (!w) return alert('Please allow popups to download ticket. Enable popups for this site and try again.');
         w.document.write(html);
         w.document.close();
       } catch (err) {

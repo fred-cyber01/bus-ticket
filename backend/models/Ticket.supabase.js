@@ -20,13 +20,50 @@ class TicketSupabase {
 
   static async getAllBookings(filters = {}) {
     const supabase = require('../config/supabase');
-    let q = supabase.from('tickets').select('*').order('created_at', { ascending: false });
+    let q = supabase
+      .from('tickets')
+      .select(`
+        *,
+        trip:trips(
+          trip_date,
+          departure_time,
+          route_id,
+          origin_id,
+          destination_id, 
+          car_id,
+          company_id,
+          car:cars(plate_number, company_id, total_seats),
+          origin_stop:stops!trips_origin_id_fkey(name),
+          destination_stop:stops!trips_destination_id_fkey(name)
+        )
+      `)
+      .order('created_at', { ascending: false });
+      
     if (filters.company_id) q = q.eq('company_id', filters.company_id);
     if (filters.user_id) q = q.eq('user_id', filters.user_id);
     if (filters.trip_id) q = q.eq('trip_id', filters.trip_id);
+    
     const { data, error } = await q;
     if (error) throw error;
-    return data || [];
+    
+    // Flatten and enrich the data
+    const enriched = (data || []).map(ticket => {
+      const trip = ticket.trip || {};
+      const car = trip.car || {};
+      const originStop = trip.origin_stop || {};
+      const destStop = trip.destination_stop || {};
+      
+      return {
+        ...ticket,
+        boarding_stop_name: originStop.name || '',
+        dropoff_stop_name: destStop.name || '',
+        plate_number: car.plate_number || '',
+        company_id: trip.company_id || car.company_id || null,
+        booking_reference: ticket.booking_reference || `BK${String(ticket.id || '').padStart(6, '0')}`
+      };
+    });
+    
+    return enriched;
   }
 
   static async findByCompany(companyId, options = {}) {
