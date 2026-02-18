@@ -336,10 +336,10 @@ router.get('/trips', authenticate, async (req, res, next) => {
     if (error) throw error;
     
     // Get stop names for routes
-    const routeIds = [...new Set((trips || []).map(t => t.route?.id).filter(Boolean))];
+    const tripRouteIds = [...new Set((trips || []).map(t => t.route?.id).filter(Boolean))];
     let stopNames = {};
     
-    if (routeIds.length > 0) {
+    if (tripRouteIds.length > 0) {
       const { data: routes } = await supabase
         .from('routes')
         .select(`
@@ -347,7 +347,7 @@ router.get('/trips', authenticate, async (req, res, next) => {
           origin_stop:stops!routes_origin_stop_id_fkey(name),
           destination_stop:stops!routes_destination_stop_id_fkey(name)
         `)
-        .in('id', routeIds);
+        .in('id', tripRouteIds);
       
       routes?.forEach(r => {
         stopNames[r.id] = {
