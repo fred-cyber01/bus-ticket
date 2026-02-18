@@ -242,8 +242,50 @@ module.exports = {
   },
 
   async getTicketById(id) {
-    const { data, error } = await supabase.from('tickets').select('*').eq('id', id).limit(1).single();
+    const { data, error } = await supabase
+      .from('tickets')
+      .select(`
+        *,
+        trip:trips(
+          trip_date,
+          departure_time,
+          route_id,
+          origin_id,
+          destination_id,
+          car_id,
+          company_id,
+          car:cars(plate_number, company_id, total_seats, company:companies(company_name, phone)),
+          origin_stop:stops!trips_origin_id_fkey(name),
+          destination_stop:stops!trips_destination_id_fkey(name)
+        )
+      `)
+      .eq('id', id)
+      .limit(1)
+      .single();
+      
     if (error && error.code !== 'PGRST116') throw error;
-    return data;
+    
+    if (!data) return null;
+    
+    // Flatten and enrich the data
+    const trip = data.trip || {};
+    const car = trip.car || {};
+    const company = car.company || {};
+    const originStop = trip.origin_stop || {};
+    const destStop = trip.destination_stop || {};
+    
+    return {
+      ...data,
+      boarding_stop_name: originStop.name || '',
+      dropoff_stop_name: destStop.name || '',
+      origin: originStop.name || '',
+      destination: destStop.name || '',
+      plate_number: car.plate_number || '',
+      company_id: trip.company_id || car.company_id || null,
+      company_name: company.company_name || '',
+      company_phone: company.phone || '',
+      booking_reference: data.booking_reference || `BK${String(data.id || '').padStart(6, '0')}`,
+      trip_date: trip.trip_date || null
+    };
   }
 };
