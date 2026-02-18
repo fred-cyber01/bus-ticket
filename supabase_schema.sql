@@ -95,6 +95,7 @@ CREATE TABLE IF NOT EXISTS cars (
   type varchar(100),
   park varchar(255),
   capacity integer DEFAULT 0,
+  total_seats integer DEFAULT 50,
   is_active boolean DEFAULT true,
   created_at timestamptz DEFAULT now(),
   updated_at timestamptz DEFAULT now()
@@ -161,9 +162,13 @@ CREATE TABLE IF NOT EXISTS tickets (
   seat_number varchar(50),
   price numeric(12,2) DEFAULT 0,
   passenger_name varchar(255),
+  passenger_age integer,
   passenger_phone varchar(50),
+  passenger_email varchar(255),
   departure_time timestamptz,
   booking_date date DEFAULT CURRENT_DATE,
+  booking_reference varchar(100),
+  qr_code text,
   ticket_status varchar(50) DEFAULT 'booked',
   payment_status varchar(50) DEFAULT 'pending',
   payment_method varchar(100),
@@ -175,6 +180,7 @@ CREATE TABLE IF NOT EXISTS tickets (
 CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
 CREATE INDEX IF NOT EXISTS idx_trips_departure ON trips(departure_time);
 CREATE INDEX IF NOT EXISTS idx_tickets_trip ON tickets(trip_id);
+CREATE INDEX IF NOT EXISTS idx_tickets_booking_reference ON tickets(booking_reference);
 
 -- Trigger to keep updated_at current
 CREATE OR REPLACE FUNCTION trigger_set_timestamp()
