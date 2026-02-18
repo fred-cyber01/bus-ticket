@@ -446,34 +446,72 @@ export default function CustomerDashboard() {
         const companyName = booking.company_name || 'Bus Company';
         const qrCodeUrl = booking.qr_code || `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(JSON.stringify({id: booking.id, ref: ticketNum}))}`;
         
-        const html = `<!doctype html><html><head><meta charset="utf-8"><title>Ticket #${ticketNum} - ${companyName}</title><meta name="viewport" content="width=device-width,initial-scale=1"><style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;color:#333;background:#f5f5f5;padding:${asImage ? '0' : '20px'}}.container{max-width:800px;margin:0 auto;background:white;border-radius:12px;overflow:hidden;box-shadow:0 8px 16px rgba(0,0,0,0.15)}.header{background:linear-gradient(135deg,#3b82f6 0%,#2563eb 100%);color:white;text-align:center;padding:32px}.header h1{font-size:32px;margin-bottom:8px;font-weight:700}.header .company-name{font-size:18px;opacity:0.95;margin-bottom:4px;letter-spacing:0.5px}.header p{font-size:14px;opacity:0.9}.ticket-num{background:#f97316;color:white;text-align:center;padding:12px;font-weight:700;font-size:16px;letter-spacing:1px}.content{padding:32px}.info-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:24px}.section-box{background:#f8fafc;padding:20px;border-radius:12px;border:1px solid #e2e8f0}.section-title{background:#1e293b;color:white;padding:10px 16px;font-size:14px;font-weight:700;margin:-20px -20px 16px -20px;border-radius:11px 11px 0 0;text-transform:uppercase;letter-spacing:0.5px}.info-item{display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid #e2e8f0;font-size:14px}.info-item:last-child{border-bottom:none}.info-item .label{color:#64748b;font-weight:600}.info-item .value{color:#1e293b;font-weight:700;text-align:right}.pricing{background:linear-gradient(135deg,#f8fafc 0%,#e0e7ff 100%);padding:20px;border-radius:12px;margin-top:24px;border:2px solid #3b82f6}.pricing .total{border-top:3px solid #3b82f6;margin-top:16px;padding-top:16px;font-size:20px;font-weight:800;color:#f97316}.qr-section{text-align:center;margin:32px 0;background:#f8fafc;padding:24px;border-radius:12px;border:2px dashed #cbd5e1}.qr-section .qr-title{font-size:16px;font-weight:700;color:#1e293b;margin-bottom:16px;text-transform:uppercase;letter-spacing:1px}.qr-section img{width:200px;height:200px;border:3px solid #3b82f6;border-radius:12px;padding:12px;background:white;box-shadow:0 4px 12px rgba(59,130,246,0.2)}.footer{background:#1e293b;color:#cbd5e1;padding:24px;border-top:4px solid #3b82f6;font-size:12px}.footer strong{color:white;display:block;margin-bottom:12px;font-size:14px}.footer ul{list-style:none;padding-left:0}.footer li{margin:6px 0;padding-left:20px;position:relative;line-height:1.5}.footer li:before{content:'✓';position:absolute;left:0;color:#3b82f6;font-weight:bold}@media print{body{background:white;padding:0}.container{box-shadow:none}}@media (max-width:768px){.info-grid{grid-template-columns:1fr}}</style></head><body><div class="container"><div class="header"><h1>🚌 ${companyName}</h1><p class="company-name">${companyName}</p><p>E-Ticket - Rwanda Bus Service</p></div><div class="ticket-num">BOOKING REFERENCE: ${ticketNum}</div><div class="content"><div class="info-grid"><div class="section-box"><div class="section-title">👤 Passenger Information</div><div class="info-item"><span class="label">Full Name:</span><span class="value">${booking.passenger_name || 'N/A'}</span></div><div class="info-item"><span class="label">Phone:</span><span class="value">${booking.passenger_phone || booking.user_phone || 'N/A'}</span></div><div class="info-item"><span class="label">Email:</span><span class="value">${booking.passenger_email || booking.user_email || 'N/A'}</span></div>${booking.passenger_age ? `<div class="info-item"><span class="label">Age:</span><span class="value">${booking.passenger_age}</span></div>` : ''}</div><div class="section-box"><div class="section-title">🚍 Trip Details</div><div class="info-item"><span class="label">From:</span><span class="value">${booking.origin || booking.boarding_stop_name || 'N/A'}</span></div><div class="info-item"><span class="label">To:</span><span class="value">${booking.destination || booking.dropoff_stop_name || 'N/A'}</span></div><div class="info-item"><span class="label">Date:</span><span class="value">${booking.departure_time ? new Date(booking.departure_time).toLocaleDateString('en-US', {weekday: 'short', year: 'numeric', month: 'short', day: 'numeric'}) : 'N/A'}</span></div><div class="info-item"><span class="label">Time:</span><span class="value">${booking.departure_time ? new Date(booking.departure_time).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : 'N/A'}</span></div><div class="info-item"><span class="label">Bus Plate:</span><span class="value">${booking.plate_number || 'N/A'}</span></div><div class="info-item"><span class="label">Company:</span><span class="value" style="color:#3b82f6">${companyName}</span></div><div class="info-item"><span class="label">Seat Number:</span><span class="value" style="color:#f97316;font-size:18px">🪑 ${booking.seat_number || 'N/A'}</span></div></div></div><div class="pricing"><div class="section-title">💰 Payment Details</div><div class="info-item"><span class="label">Ticket Fare:</span><span class="value">${(booking.price || 0).toLocaleString()} RWF</span></div><div class="info-item"><span class="label">Service Fee:</span><span class="value">${(booking.service_fee || 0).toLocaleString()} RWF</span></div><div class="info-item"><span class="label">Payment Method:</span><span class="value">${booking.payment_method || 'MTN Mobile Money'}</span></div>${booking.transaction_ref ? `<div class="info-item"><span class="label">Transaction Ref:</span><span class="value">${booking.transaction_ref}</span></div>` : ''}<div class="info-item total"><span class="label">TOTAL PAID:</span><span class="value">${((booking.price || 0) + (booking.service_fee || 0)).toLocaleString()} RWF</span></div></div><div class="qr-section"><div class="qr-title">📱 Scan to Verify Ticket</div><img src="${qrCodeUrl}" alt="QR Code" /></div></div><div class="footer"><strong>📋 Important Information & Terms:</strong><ul><li>Please arrive at least 15 minutes before departure time</li><li>This ticket is non-refundable and non-transferable</li><li>Valid government-issued ID required for boarding verification</li><li>Present this ticket (printed or digital) and ID at boarding gate</li><li>Company: ${companyName} | Support: ${booking.company_phone || 'Contact your bus company'}</li></ul></div></div>${asImage ? '' : '<script>setTimeout(() => window.print(), 500);</script>'}</body></html>`;
+        const downloadBtnHtml = asImage ? `
+          <div id="download-controls" style="position:fixed;top:20px;right:20px;z-index:9999;display:flex;gap:10px;flex-direction:column;">
+            <button onclick="downloadAsImage()" style="background:#10b981;color:white;border:none;padding:16px 24px;border-radius:12px;font-weight:700;font-size:16px;cursor:pointer;box-shadow:0 4px 12px rgba(16,185,129,0.4);display:flex;align-items:center;gap:8px;transition:all 0.3s;" onmouseover="this.style.background='#059669'" onmouseout="this.style.background='#10b981'">
+              <span style="font-size:20px;">💾</span>
+              Download Image
+            </button>
+            <button onclick="window.print()" style="background:#3b82f6;color:white;border:none;padding:12px 20px;border-radius:12px;font-weight:600;font-size:14px;cursor:pointer;box-shadow:0 2px 8px rgba(59,130,246,0.3);display:flex;align-items:center;gap:8px;transition:all 0.3s;" onmouseover="this.style.background='#2563eb'" onmouseout="this.style.background='#3b82f6'">
+              <span>🖨️</span>
+              Print
+            </button>
+            <button onclick="window.close()" style="background:#ef4444;color:white;border:none;padding:12px 20px;border-radius:12px;font-weight:600;font-size:14px;cursor:pointer;box-shadow:0 2px 8px rgba(239,68,68,0.3);display:flex;align-items:center;gap:8px;transition:all 0.3s;" onmouseover="this.style.background='#dc2626'" onmouseout="this.style.background='#ef4444'">
+              <span>✕</span>
+              Close
+            </button>
+          </div>
+          <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+          <script>
+            function downloadAsImage() {
+              const btn = document.querySelector('#download-controls');
+              btn.style.display = 'none';
+              
+              html2canvas(document.querySelector('.container'), {
+                scale: 2,
+                backgroundColor: '#ffffff',
+                logging: false,
+                useCORS: true,
+                allowTaint: true
+              }).then(canvas => {
+                btn.style.display = 'flex';
+                const link = document.createElement('a');
+                link.download = 'ticket-${ticketNum}.png';
+                link.href = canvas.toDataURL('image/png');
+                link.click();
+                
+                // Show success message
+                const msg = document.createElement('div');
+                msg.textContent = '✅ Image downloaded successfully!';
+                msg.style = 'position:fixed;top:20px;left:50%;transform:translateX(-50%);background:#10b981;color:white;padding:16px 32px;border-radius:12px;font-weight:600;box-shadow:0 4px 12px rgba(0,0,0,0.2);z-index:10000;';
+                document.body.appendChild(msg);
+                setTimeout(() => msg.remove(), 3000);
+              }).catch(err => {
+                btn.style.display = 'flex';
+                alert('Download failed. Please use Print > Save as PDF instead, or right-click the ticket and select "Save image as..."');
+                console.error('html2canvas error:', err);
+              });
+            }
+            
+            // Auto-show instructions if html2canvas fails to load
+            setTimeout(() => {
+              if (typeof html2canvas === 'undefined') {
+                const fallback = document.createElement('div');
+                fallback.innerHTML = '<div style="background:#f59e0b;color:white;padding:12px;text-align:center;font-size:14px;"><strong>Alternative:</strong> Right-click the ticket → Save image as... or use Print button</div>';
+                document.body.insertBefore(fallback, document.body.firstChild);
+              }
+            }, 2000);
+          </script>
+        ` : '';
+        
+        const html = `<!doctype html><html><head><meta charset="utf-8"><title>Ticket #${ticketNum} - ${companyName}</title><meta name="viewport" content="width=device-width,initial-scale=1"><style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;color:#333;background:#f5f5f5;padding:${asImage ? '20px' : '20px'}}.container{max-width:800px;margin:0 auto;background:white;border-radius:12px;overflow:hidden;box-shadow:0 8px 16px rgba(0,0,0,0.15)}.header{background:linear-gradient(135deg,#3b82f6 0%,#2563eb 100%);color:white;text-align:center;padding:32px}.header h1{font-size:32px;margin-bottom:8px;font-weight:700}.header .company-name{font-size:18px;opacity:0.95;margin-bottom:4px;letter-spacing:0.5px}.header p{font-size:14px;opacity:0.9}.ticket-num{background:#f97316;color:white;text-align:center;padding:12px;font-weight:700;font-size:16px;letter-spacing:1px}.content{padding:32px}.info-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:24px}.section-box{background:#f8fafc;padding:20px;border-radius:12px;border:1px solid #e2e8f0}.section-title{background:#1e293b;color:white;padding:10px 16px;font-size:14px;font-weight:700;margin:-20px -20px 16px -20px;border-radius:11px 11px 0 0;text-transform:uppercase;letter-spacing:0.5px}.info-item{display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid #e2e8f0;font-size:14px}.info-item:last-child{border-bottom:none}.info-item .label{color:#64748b;font-weight:600}.info-item .value{color:#1e293b;font-weight:700;text-align:right}.pricing{background:linear-gradient(135deg,#f8fafc 0%,#e0e7ff 100%);padding:20px;border-radius:12px;margin-top:24px;border:2px solid #3b82f6}.pricing .total{border-top:3px solid #3b82f6;margin-top:16px;padding-top:16px;font-size:20px;font-weight:800;color:#f97316}.qr-section{text-align:center;margin:32px 0;background:#f8fafc;padding:24px;border-radius:12px;border:2px dashed #cbd5e1}.qr-section .qr-title{font-size:16px;font-weight:700;color:#1e293b;margin-bottom:16px;text-transform:uppercase;letter-spacing:1px}.qr-section img{width:200px;height:200px;border:3px solid #3b82f6;border-radius:12px;padding:12px;background:white;box-shadow:0 4px 12px rgba(59,130,246,0.2)}.footer{background:#1e293b;color:#cbd5e1;padding:24px;border-top:4px solid #3b82f6;font-size:12px}.footer strong{color:white;display:block;margin-bottom:12px;font-size:14px}.footer ul{list-style:none;padding-left:0}.footer li{margin:6px 0;padding-left:20px;position:relative;line-height:1.5}.footer li:before{content:'✓';position:absolute;left:0;color:#3b82f6;font-weight:bold}@media print{body{background:white;padding:0}.container{box-shadow:none}#download-controls{display:none!important}}@media (max-width:768px){.info-grid{grid-template-columns:1fr}#download-controls{top:10px;right:10px;}#download-controls button{font-size:14px;padding:12px 16px;}}</style></head><body>${downloadBtnHtml}<div class="container"><div class="header"><h1>🚌 ${companyName}</h1><p class="company-name">${companyName}</p><p>E-Ticket - Rwanda Bus Service</p></div><div class="ticket-num">BOOKING REFERENCE: ${ticketNum}</div><div class="content"><div class="info-grid"><div class="section-box"><div class="section-title">👤 Passenger Information</div><div class="info-item"><span class="label">Full Name:</span><span class="value">${booking.passenger_name || 'N/A'}</span></div><div class="info-item"><span class="label">Phone:</span><span class="value">${booking.passenger_phone || booking.user_phone || 'N/A'}</span></div><div class="info-item"><span class="label">Email:</span><span class="value">${booking.passenger_email || booking.user_email || 'N/A'}</span></div>${booking.passenger_age ? `<div class="info-item"><span class="label">Age:</span><span class="value">${booking.passenger_age}</span></div>` : ''}</div><div class="section-box"><div class="section-title">🚍 Trip Details</div><div class="info-item"><span class="label">From:</span><span class="value">${booking.origin || booking.boarding_stop_name || 'N/A'}</span></div><div class="info-item"><span class="label">To:</span><span class="value">${booking.destination || booking.dropoff_stop_name || 'N/A'}</span></div><div class="info-item"><span class="label">Date:</span><span class="value">${booking.departure_time ? new Date(booking.departure_time).toLocaleDateString('en-US', {weekday: 'short', year: 'numeric', month: 'short', day: 'numeric'}) : 'N/A'}</span></div><div class="info-item"><span class="label">Time:</span><span class="value">${booking.departure_time ? new Date(booking.departure_time).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : 'N/A'}</span></div><div class="info-item"><span class="label">Bus Plate:</span><span class="value">${booking.plate_number || 'N/A'}</span></div><div class="info-item"><span class="label">Company:</span><span class="value" style="color:#3b82f6">${companyName}</span></div><div class="info-item"><span class="label">Seat Number:</span><span class="value" style="color:#f97316;font-size:18px">🪑 ${booking.seat_number || 'N/A'}</span></div></div></div><div class="pricing"><div class="section-title">💰 Payment Details</div><div class="info-item"><span class="label">Ticket Fare:</span><span class="value">${(booking.price || 0).toLocaleString()} RWF</span></div><div class="info-item"><span class="label">Service Fee:</span><span class="value">${(booking.service_fee || 0).toLocaleString()} RWF</span></div><div class="info-item"><span class="label">Payment Method:</span><span class="value">${booking.payment_method || 'MTN Mobile Money'}</span></div>${booking.transaction_ref ? `<div class="info-item"><span class="label">Transaction Ref:</span><span class="value">${booking.transaction_ref}</span></div>` : ''}<div class="info-item total"><span class="label">TOTAL PAID:</span><span class="value">${((booking.price || 0) + (booking.service_fee || 0)).toLocaleString()} RWF</span></div></div><div class="qr-section"><div class="qr-title">📱 Scan to Verify Ticket</div><img src="${qrCodeUrl}" alt="QR Code" crossorigin="anonymous" /></div></div><div class="footer"><strong>📋 Important Information & Terms:</strong><ul><li>Please arrive at least 15 minutes before departure time</li><li>This ticket is non-refundable and non-transferable</li><li>Valid government-issued ID required for boarding verification</li><li>Present this ticket (printed or digital) and ID at boarding gate</li><li>Company: ${companyName} | Support: ${booking.company_phone || 'Contact your bus company'}</li></ul></div></div>${asImage ? '' : '<script>setTimeout(() => window.print(), 500);</script>'}</body></html>`;
 
         if (asImage) {
-          // Download as image using html2canvas
+          // Open ticket with download button
           const w = window.open('', '_blank');
           if (!w) return alert('Please allow popups to download ticket. Enable popups for this site and try again.');
           w.document.write(html);
           w.document.close();
-          
-          // Wait for images to load then convert to canvas
-          setTimeout(() => {
-            try {
-              // Try to use html2canvas if available, otherwise show print dialog
-              if (typeof w.html2canvas !== 'undefined') {
-                w.html2canvas(w.document.querySelector('.container')).then(canvas => {
-                  const link = w.document.createElement('a');
-                  link.download = `ticket-${ticketNum}.png`;
-                  link.href = canvas.toDataURL();
-                  link.click();
-                  setTimeout(() => w.close(), 500);
-                });
-              } else {
-                alert('Right-click the ticket and select "Save as image" or use browser Print > Save as PDF');
-              }
-            } catch (err) {
-              alert('Right-click the ticket and select "Save as image" or use browser Print > Save as PDF');
-            }
-          }, 1000);
         } else {
           // Download as PDF (opens print dialog)
           const w = window.open('', '_blank');
