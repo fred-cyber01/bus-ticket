@@ -32,7 +32,12 @@ class TicketSupabase {
           destination_id, 
           car_id,
           company_id,
-          car:cars(plate_number, company_id, total_seats),
+          car:cars(
+            plate_number, 
+            company_id, 
+            total_seats,
+            company:companies(company_name, phone, email)
+          ),
           origin_stop:stops!trips_origin_id_fkey(name),
           destination_stop:stops!trips_destination_id_fkey(name)
         )
@@ -50,6 +55,7 @@ class TicketSupabase {
     const enriched = (data || []).map(ticket => {
       const trip = ticket.trip || {};
       const car = trip.car || {};
+      const company = car.company || {};
       const originStop = trip.origin_stop || {};
       const destStop = trip.destination_stop || {};
       
@@ -59,6 +65,9 @@ class TicketSupabase {
         dropoff_stop_name: destStop.name || '',
         plate_number: car.plate_number || '',
         company_id: trip.company_id || car.company_id || null,
+        company_name: company.company_name || '',
+        company_phone: company.phone || '',
+        company_email: company.email || '',
         booking_reference: ticket.booking_reference || `BK${String(ticket.id || '').padStart(6, '0')}`
       };
     });

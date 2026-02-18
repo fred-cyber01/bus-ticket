@@ -423,7 +423,7 @@ export default function CustomerDashboard() {
     setDestinationSuggestions([]);
   };
 
-  const handleDownload = (e, ticketData) => {
+  const handleDownload = (e, ticketData, asImage = false) => {
     e.stopPropagation();
     (async () => {
       try {
@@ -443,14 +443,44 @@ export default function CustomerDashboard() {
         if (!booking) return alert('Unable to fetch ticket details for download');
 
         const ticketNum = booking.booking_reference || booking.id || '000000';
+        const companyName = booking.company_name || 'Bus Company';
         const qrCodeUrl = booking.qr_code || `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(JSON.stringify({id: booking.id, ref: ticketNum}))}`;
         
-        const html = `<!doctype html><html><head><meta charset="utf-8"><title>Ticket #${ticketNum}</title><meta name="viewport" content="width=device-width,initial-scale=1"><style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;color:#333;background:#f5f5f5;padding:20px}.container{max-width:800px;margin:0 auto;background:white;border-radius:12px;overflow:hidden;box-shadow:0 4px 6px rgba(0,0,0,0.1)}.header{background:linear-gradient(135deg,#3b82f6 0%,#2563eb 100%);color:white;text-align:center;padding:24px}.header h1{font-size:24px;margin-bottom:8px}.header p{font-size:14px;opacity:0.9}.ticket-num{background:#f97316;color:white;text-align:center;padding:8px;font-weight:600;font-size:14px}.content{padding:32px}.section{margin-bottom:24px}.section-title{background:#f1f5f9;padding:8px 12px;font-size:13px;font-weight:600;color:#475569;margin-bottom:12px;border-left:4px solid #3b82f6}.info-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:16px}.info-item{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f1f5f9;font-size:14px}.info-item .label{color:#64748b;font-weight:500}.info-item .value{color:#1e293b;font-weight:600}.pricing{background:#f8fafc;padding:16px;border-radius:8px;margin-top:16px}.pricing .total{border-top:2px solid #cbd5e1;margin-top:12px;padding-top:12px;font-size:18px;font-weight:700;color:#f97316}.qr-section{text-align:center;margin:24px 0}.qr-section img{width:180px;height:180px;border:2px solid #e2e8f0;border-radius:8px;padding:8px;background:white}.footer{background:#f8fafc;padding:16px;border-top:2px solid #e2e8f0;font-size:12px;color:#64748b}.footer ul{list-style:none;padding-left:0}.footer li{margin:4px 0;padding-left:16px;position:relative}.footer li:before{content:'•';position:absolute;left:0;color:#3b82f6}@media print{body{background:white;padding:0}.container{box-shadow:none}}@media (max-width:768px){.info-grid{grid-template-columns:1fr}}</style></head><body><div class="container"><div class="header"><h1>🚌 BUS COMPANY</h1><p>E-Ticket - Rwanda Bus Service</p></div><div class="ticket-num">TICKET #${ticketNum}</div><div class="content"><div class="info-grid"><div><div class="section-title">PASSENGER INFORMATION</div><div class="info-item"><span class="label">Full Name:</span><span class="value">${booking.passenger_name || 'N/A'}</span></div><div class="info-item"><span class="label">Phone:</span><span class="value">${booking.passenger_phone || booking.user_phone || 'N/A'}</span></div><div class="info-item"><span class="label">Email:</span><span class="value">${booking.passenger_email || booking.user_email || 'N/A'}</span></div></div><div><div class="section-title">TRIP DETAILS</div><div class="info-item"><span class="label">From:</span><span class="value">${booking.origin || 'N/A'}</span></div><div class="info-item"><span class="label">To:</span><span class="value">${booking.destination || 'N/A'}</span></div><div class="info-item"><span class="label">Date:</span><span class="value">${booking.departure_time ? new Date(booking.departure_time).toLocaleDateString() : 'N/A'}</span></div><div class="info-item"><span class="label">Time:</span><span class="value">${booking.departure_time ? new Date(booking.departure_time).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : 'N/A'}</span></div><div class="info-item"><span class="label">Bus Plate:</span><span class="value">${booking.plate_number || 'N/A'}</span></div><div class="info-item"><span class="label">Company:</span><span class="value">${booking.company_name || 'Bus Service'}</span></div><div class="info-item"><span class="label">Seat Number:</span><span class="value" style="color:#f97316;font-size:16px">${booking.seat_number || 'N/A'}</span></div></div></div><div class="pricing"><div class="section-title">PRICING DETAILS</div><div class="info-item"><span class="label">Ticket Fare:</span><span class="value">${(booking.price || 0).toLocaleString()} RWF</span></div><div class="info-item"><span class="label">Service Fee:</span><span class="value">${(booking.service_fee || 500).toLocaleString()} RWF</span></div><div class="info-item total"><span class="label">TOTAL PAID:</span><span class="value">${((booking.price || 0) + (booking.service_fee || 500)).toLocaleString()} RWF</span></div></div><div class="qr-section"><div class="section-title">SCAN TO VERIFY</div><img src="${qrCodeUrl}" alt="QR Code" /></div></div><div class="footer"><strong>Terms & Conditions:</strong><ul><li>Please arrive 15 minutes before departure time</li><li>This ticket is non-refundable and non-transferable</li><li>Valid ID required for boarding</li><li>Present this ticket and ID at boarding gate</li></ul></div></div><script>setTimeout(() => window.print(), 500);</script></body></html>`;
+        const html = `<!doctype html><html><head><meta charset="utf-8"><title>Ticket #${ticketNum} - ${companyName}</title><meta name="viewport" content="width=device-width,initial-scale=1"><style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;color:#333;background:#f5f5f5;padding:${asImage ? '0' : '20px'}}.container{max-width:800px;margin:0 auto;background:white;border-radius:12px;overflow:hidden;box-shadow:0 8px 16px rgba(0,0,0,0.15)}.header{background:linear-gradient(135deg,#3b82f6 0%,#2563eb 100%);color:white;text-align:center;padding:32px}.header h1{font-size:32px;margin-bottom:8px;font-weight:700}.header .company-name{font-size:18px;opacity:0.95;margin-bottom:4px;letter-spacing:0.5px}.header p{font-size:14px;opacity:0.9}.ticket-num{background:#f97316;color:white;text-align:center;padding:12px;font-weight:700;font-size:16px;letter-spacing:1px}.content{padding:32px}.info-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:24px}.section-box{background:#f8fafc;padding:20px;border-radius:12px;border:1px solid #e2e8f0}.section-title{background:#1e293b;color:white;padding:10px 16px;font-size:14px;font-weight:700;margin:-20px -20px 16px -20px;border-radius:11px 11px 0 0;text-transform:uppercase;letter-spacing:0.5px}.info-item{display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid #e2e8f0;font-size:14px}.info-item:last-child{border-bottom:none}.info-item .label{color:#64748b;font-weight:600}.info-item .value{color:#1e293b;font-weight:700;text-align:right}.pricing{background:linear-gradient(135deg,#f8fafc 0%,#e0e7ff 100%);padding:20px;border-radius:12px;margin-top:24px;border:2px solid #3b82f6}.pricing .total{border-top:3px solid #3b82f6;margin-top:16px;padding-top:16px;font-size:20px;font-weight:800;color:#f97316}.qr-section{text-align:center;margin:32px 0;background:#f8fafc;padding:24px;border-radius:12px;border:2px dashed #cbd5e1}.qr-section .qr-title{font-size:16px;font-weight:700;color:#1e293b;margin-bottom:16px;text-transform:uppercase;letter-spacing:1px}.qr-section img{width:200px;height:200px;border:3px solid #3b82f6;border-radius:12px;padding:12px;background:white;box-shadow:0 4px 12px rgba(59,130,246,0.2)}.footer{background:#1e293b;color:#cbd5e1;padding:24px;border-top:4px solid #3b82f6;font-size:12px}.footer strong{color:white;display:block;margin-bottom:12px;font-size:14px}.footer ul{list-style:none;padding-left:0}.footer li{margin:6px 0;padding-left:20px;position:relative;line-height:1.5}.footer li:before{content:'✓';position:absolute;left:0;color:#3b82f6;font-weight:bold}@media print{body{background:white;padding:0}.container{box-shadow:none}}@media (max-width:768px){.info-grid{grid-template-columns:1fr}}</style></head><body><div class="container"><div class="header"><h1>🚌 ${companyName}</h1><p class="company-name">${companyName}</p><p>E-Ticket - Rwanda Bus Service</p></div><div class="ticket-num">BOOKING REFERENCE: ${ticketNum}</div><div class="content"><div class="info-grid"><div class="section-box"><div class="section-title">👤 Passenger Information</div><div class="info-item"><span class="label">Full Name:</span><span class="value">${booking.passenger_name || 'N/A'}</span></div><div class="info-item"><span class="label">Phone:</span><span class="value">${booking.passenger_phone || booking.user_phone || 'N/A'}</span></div><div class="info-item"><span class="label">Email:</span><span class="value">${booking.passenger_email || booking.user_email || 'N/A'}</span></div>${booking.passenger_age ? `<div class="info-item"><span class="label">Age:</span><span class="value">${booking.passenger_age}</span></div>` : ''}</div><div class="section-box"><div class="section-title">🚍 Trip Details</div><div class="info-item"><span class="label">From:</span><span class="value">${booking.origin || booking.boarding_stop_name || 'N/A'}</span></div><div class="info-item"><span class="label">To:</span><span class="value">${booking.destination || booking.dropoff_stop_name || 'N/A'}</span></div><div class="info-item"><span class="label">Date:</span><span class="value">${booking.departure_time ? new Date(booking.departure_time).toLocaleDateString('en-US', {weekday: 'short', year: 'numeric', month: 'short', day: 'numeric'}) : 'N/A'}</span></div><div class="info-item"><span class="label">Time:</span><span class="value">${booking.departure_time ? new Date(booking.departure_time).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : 'N/A'}</span></div><div class="info-item"><span class="label">Bus Plate:</span><span class="value">${booking.plate_number || 'N/A'}</span></div><div class="info-item"><span class="label">Company:</span><span class="value" style="color:#3b82f6">${companyName}</span></div><div class="info-item"><span class="label">Seat Number:</span><span class="value" style="color:#f97316;font-size:18px">🪑 ${booking.seat_number || 'N/A'}</span></div></div></div><div class="pricing"><div class="section-title">💰 Payment Details</div><div class="info-item"><span class="label">Ticket Fare:</span><span class="value">${(booking.price || 0).toLocaleString()} RWF</span></div><div class="info-item"><span class="label">Service Fee:</span><span class="value">${(booking.service_fee || 0).toLocaleString()} RWF</span></div><div class="info-item"><span class="label">Payment Method:</span><span class="value">${booking.payment_method || 'MTN Mobile Money'}</span></div>${booking.transaction_ref ? `<div class="info-item"><span class="label">Transaction Ref:</span><span class="value">${booking.transaction_ref}</span></div>` : ''}<div class="info-item total"><span class="label">TOTAL PAID:</span><span class="value">${((booking.price || 0) + (booking.service_fee || 0)).toLocaleString()} RWF</span></div></div><div class="qr-section"><div class="qr-title">📱 Scan to Verify Ticket</div><img src="${qrCodeUrl}" alt="QR Code" /></div></div><div class="footer"><strong>📋 Important Information & Terms:</strong><ul><li>Please arrive at least 15 minutes before departure time</li><li>This ticket is non-refundable and non-transferable</li><li>Valid government-issued ID required for boarding verification</li><li>Present this ticket (printed or digital) and ID at boarding gate</li><li>Company: ${companyName} | Support: ${booking.company_phone || 'Contact your bus company'}</li></ul></div></div>${asImage ? '' : '<script>setTimeout(() => window.print(), 500);</script>'}</body></html>`;
 
-        const w = window.open('', '_blank');
-        if (!w) return alert('Please allow popups to download ticket. Enable popups for this site and try again.');
-        w.document.write(html);
-        w.document.close();
+        if (asImage) {
+          // Download as image using html2canvas
+          const w = window.open('', '_blank');
+          if (!w) return alert('Please allow popups to download ticket. Enable popups for this site and try again.');
+          w.document.write(html);
+          w.document.close();
+          
+          // Wait for images to load then convert to canvas
+          setTimeout(() => {
+            try {
+              // Try to use html2canvas if available, otherwise show print dialog
+              if (typeof w.html2canvas !== 'undefined') {
+                w.html2canvas(w.document.querySelector('.container')).then(canvas => {
+                  const link = w.document.createElement('a');
+                  link.download = `ticket-${ticketNum}.png`;
+                  link.href = canvas.toDataURL();
+                  link.click();
+                  setTimeout(() => w.close(), 500);
+                });
+              } else {
+                alert('Right-click the ticket and select "Save as image" or use browser Print > Save as PDF');
+              }
+            } catch (err) {
+              alert('Right-click the ticket and select "Save as image" or use browser Print > Save as PDF');
+            }
+          }, 1000);
+        } else {
+          // Download as PDF (opens print dialog)
+          const w = window.open('', '_blank');
+          if (!w) return alert('Please allow popups to download ticket. Enable popups for this site and try again.');
+          w.document.write(html);
+          w.document.close();
+        }
       } catch (err) {
         console.error('Download failed', err);
         alert('Download failed: ' + (err.message || 'Unknown'));
@@ -659,10 +689,18 @@ export default function CustomerDashboard() {
 
             <div className="flex items-center gap-2">
               <button 
-                onClick={(e) => handleDownload(e, ticket.id)}
-                className="flex items-center gap-1.5 py-2 px-4 rounded-lg text-xs font-bold text-white bg-slate-900 hover:bg-indigo-600 transition-colors shadow-lg shadow-indigo-500/10 active:scale-95"
+                onClick={(e) => handleDownload(e, ticket.id, false)}
+                className="flex items-center gap-1.5 py-2 px-3 rounded-lg text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 transition-colors shadow-md active:scale-95"
+                title="Download as PDF"
               >
-                <Download size={14} /> Ticket
+                <Download size={14} /> PDF
+              </button>
+              <button 
+                onClick={(e) => handleDownload(e, ticket.id, true)}
+                className="flex items-center gap-1.5 py-2 px-3 rounded-lg text-xs font-bold text-white bg-green-600 hover:bg-green-700 transition-colors shadow-md active:scale-95"
+                title="Download as Image"
+              >
+                🖼️ IMG
               </button>
 
               <button
@@ -1097,7 +1135,8 @@ export default function CustomerDashboard() {
 
                   <div className="mt-3 flex items-center gap-2">
                     <button onClick={() => { setSelectedTicket(b); setSidebarOpen(false); }} className="px-3 py-1 text-sm bg-white border rounded">View</button>
-                    <button onClick={(e) => { e.stopPropagation(); handleDownload(e, b); }} className="px-3 py-1 text-sm bg-indigo-600 text-white rounded">Download</button>
+                    <button onClick={(e) => { e.stopPropagation(); handleDownload(e, b, false); }} className="px-3 py-1 text-sm bg-indigo-600 text-white rounded hover:bg-indigo-700" title="Download as PDF">📄 PDF</button>
+                    <button onClick={(e) => { e.stopPropagation(); handleDownload(e, b, true); }} className="px-3 py-1 text-sm bg-green-600 text-white rounded hover:bg-green-700" title="Download as Image">🖼️ IMG</button>
                   </div>
                 </div>
               ))
@@ -1274,8 +1313,9 @@ export default function CustomerDashboard() {
               </div>
 
               {/* Save button */}
-              <div className="mt-4">
-                <button onClick={(e) => handleDownload(e, selectedTicket.id)} className="w-full py-2 bg-slate-900 text-white text-sm font-semibold rounded">Save / Download Ticket</button>
+              <div className="mt-4 grid grid-cols-2 gap-3">
+                <button onClick={(e) => handleDownload(e, selectedTicket.id, false)} className="py-3 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold rounded shadow-md transition-colors" title="Download as PDF">📄 Download PDF</button>
+                <button onClick={(e) => handleDownload(e, selectedTicket.id, true)} className="py-3 bg-green-600 hover:bg-green-700 text-white text-sm font-semibold rounded shadow-md transition-colors" title="Download as Image">🖼️ Download Image</button>
               </div>
 
               {/* Footer terms */}
